@@ -10,7 +10,7 @@ from typing import Iterable
 MAX_FRAME_BYTES = 200 * 1024
 MAX_FRAMES = 80
 MAX_SESSION_BYTES = 12 * 1024 * 1024
-MAX_CAPTURE_SECONDS = 12.0
+MAX_CAPTURE_SECONDS = 35.0
 # Capture has its own budget, separate from the longer session creation lifetime.
 # Browser capture limits must remain consistent with this value.
 MAX_SESSION_SECONDS = 60.0
@@ -170,13 +170,13 @@ class Session:
         match = gallery.search(obs.embedding)
         if match is None or not match.accepted(self.threshold, self.margin):
             if self.identity is not None:
-                raise Rejected("IDENTITY_UNSTABLE", "身份不稳定，请重新开始")
+                raise Rejected("IDENTITY_UNSTABLE", "身份分数或候选分差未达标，请保持正脸、改善光线后重试")
             self.stable_frames = self.neutral_frames = 0
             return {"type": "PROMPT", "message": "未识别到已录入人员，请正对镜头"}
         if self.identity is None:
             self.identity, self.baseline = match.employee_id, obs.embedding
         if match.employee_id != self.identity or cosine(self.baseline, obs.embedding) < self.threshold:
-            raise Rejected("IDENTITY_UNSTABLE", "身份不稳定，请保持同一人面对镜头")
+            raise Rejected("IDENTITY_UNSTABLE", "身份候选变化或与首帧不一致，请保持同一人正对镜头重试")
         self.stable_frames += 1
         if self.stable_frames < 3:
             return {"type": "PROMPT", "message": "请保持正对镜头"}
@@ -203,8 +203,13 @@ class Session:
         if self.action_index >= len(self.actions):
             return {"type": "PROMPT", "message": "动作已完成，请保持正对镜头"}
         action = self.actions[self.action_index]
+        phase = self.tracker.phase if self.tracker is not None else 0
+        messages = {
+            "BLINK": ("请先自然睁眼，等待闭眼提示", "请缓慢闭合双眼并保持片刻", "请睁开双眼，保持正对镜头"),
+            "MOUTH": ("请先自然闭嘴，等待张嘴提示", "请张嘴并保持片刻", "请闭嘴，保持正对镜头"),
+        }
         return {"type": "PROMPT", "action": action,
-                "message": "请自然眨眼，然后睁眼" if action == "BLINK" else "请张嘴，再闭嘴"}
+                "message": messages[action][phase]}
 
     def result(self, match: Match, model_version: str, liveness: str) -> dict:
         self.finished = True

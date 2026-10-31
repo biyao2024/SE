@@ -100,4 +100,29 @@ class BusinessIntegrationTest {
             assertThat(List.of(a.get(20,java.util.concurrent.TimeUnit.SECONDS),b.get(20,java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(200,409);
         }
     }
+
+    @Test void testPunchesAreStoredButDoNotAffectFormalAttendanceOrDeduplication()throws Exception {
+        var e=employee("TEST-MODE");var d=device();var trial=session(d,e,"trial");trial.testMode=true;
+        assertThat(kiosk.finish(trial.sessionId,d.id,result(e)).get("status")).isEqualTo("SUCCESS");
+        assertThat(store.list(PunchEvent.class,"where e.source='FACE_TEST'")).hasSize(1);
+        assertThat(attendance.events(e.id,attendance.today())).isEmpty();
+        assertThat(store.list(Daily.class,"where e.employeeId=?1",e.id)).isEmpty();
+        var formal=session(d,e,"formal");assertThat(kiosk.finish(formal.sessionId,d.id,result(e)).get("status")).isEqualTo("SUCCESS");
+        assertThat(attendance.events(e.id,attendance.today())).hasSize(1);
+        mvc.perform(get("/api/v1/attendance/test-events").with(user("admin").roles("ADMIN"))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].source").value("FACE_TEST"));
+        var other=employee("OTHER-TEST");
+        mvc.perform(get("/api/v1/attendance/test-events").with(user("OTHER-TEST").roles("EMPLOYEE"))).andExpect(status().isOk()).andExpect(jsonPath("$.data").isEmpty());
+    }
+    @Test void onlyTestModeBypassesTimeWindowsAndModeIsSnapshotted() {
+        device();var settings=attendance.settings();settings.calibrationConfirmed=true;
+        var rule=attendance.rule(attendance.today());rule.inWindowStart=java.time.LocalTime.of(10,0);rule.inWindowEnd=java.time.LocalTime.of(11,0);
+        assertThatThrownBy(()->kiosk.create("test-device","IN")).hasMessageContaining("非打卡时段");
+        settings.testMode=true;var created=kiosk.create("test-device","IN");
+        assertThat(store.first(PunchSession.class,"where e.sessionId=?1",created.get("sessionId")).orElseThrow().testMode).isTrue();
+    }
+    @Test void employeesCannotEnableTestMode()throws Exception {
+        employee("TEST-EMP");
+        mvc.perform(put("/api/v1/settings").with(user("TEST-EMP").roles("EMPLOYEE")).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"testMode\":true}")).andExpect(status().isForbidden());
+        assertThat(attendance.settings().testMode).isFalse();
+    }
 }

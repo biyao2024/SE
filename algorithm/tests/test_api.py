@@ -117,6 +117,7 @@ class ApiTests(unittest.TestCase):
                 ws.send_bytes(b"test-frame")
                 result = ws.receive_json()
                 self.assertEqual(result["type"], "RESULT" if i == 2 else "PROMPT")
+                self.assertTrue(result["frameProcessed"])
             self.assertEqual(result["employeeId"], 1)
             self.assertEqual(result["livenessStatus"], "SKIPPED")
         with self.client.websocket_connect("/internal/sessions/test-session-0001/stream", headers=self.headers) as ws:

@@ -65,6 +65,7 @@ public final class Domain {
         public Long deviceId;
         public String type;
         public String actions;
+        public boolean testMode;
         public boolean livenessRequired;
         public long configVersion,galleryVersion;
         public LocalDateTime expiresAt;
@@ -117,6 +118,7 @@ public final class Domain {
     }
     @Entity(name="Settings") @Table(name="system_setting") public static class Settings extends Row {
         public boolean livenessEnabled=true;
+        public boolean testMode;
         public double recognitionThreshold=0.5,candidateMargin=0.08;
         public boolean calibrationConfirmed;
         public long configVersion=1,galleryVersion=1;

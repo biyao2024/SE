@@ -20,14 +20,14 @@ public class KioskService {
             !s.calibrationConfirmed?"管理员需完成识别参数校准并确认":
             !gallerySynced?"人员库正在同步，请稍后刷新；持续失败请联系管理员":"请单人正对镜头";
         return Map.of("authorized",true,"deviceName",d.name,"expiresAt",d.expiresAt,
-            "ready",ready,"livenessRequired",s.livenessEnabled,"message",message);
+            "ready",ready,"livenessRequired",s.livenessEnabled,"testMode",s.testMode,"message",message);
     }
     @Transactional public Map<String,Object> create(String token,String type){
-        var s=attendance.guard();var d=device(token);RequestController.type(type);if(!AttendanceEngine.inWindow(attendance.rule(attendance.today()),type,attendance.now().toLocalTime()))throw Api.error(400,"OUTSIDE_WINDOW","非打卡时段");
+        var s=attendance.guard();var d=device(token);RequestController.type(type);if(!s.testMode&&!AttendanceEngine.inWindow(attendance.rule(attendance.today()),type,attendance.now().toLocalTime()))throw Api.error(400,"OUTSIDE_WINDOW","非打卡时段");
         if(!s.calibrationConfirmed)throw Api.error(409,"CALIBRATION_REQUIRED","请管理员先完成识别阈值校准并确认参数");gallery.ensure(s);
         for(var old:store.list(PunchSession.class,"where e.status='PENDING'")){if(!old.expiresAt.isAfter(attendance.now())){old.status="EXPIRED";old.resultMessage="验证超时";}else if(old.deviceId.equals(d.id)){old.status="CANCELLED";old.resultMessage="已重新开始";algorithm.cancel(old.sessionId);}}
         if(store.list(PunchSession.class,"where e.status='PENDING' and e.expiresAt>?1",attendance.now()).size()>=2)throw Api.error(429,"DEVICE_BUSY","设备繁忙，最多同时两个会话");
-        var session=new PunchSession();session.sessionId=UUID.randomUUID().toString();session.deviceId=d.id;session.type=type;session.livenessRequired=s.livenessEnabled;session.configVersion=s.configVersion;session.galleryVersion=s.galleryVersion;session.expiresAt=attendance.now().plusSeconds(60);
+        var session=new PunchSession();session.sessionId=UUID.randomUUID().toString();session.deviceId=d.id;session.type=type;session.testMode=s.testMode;session.livenessRequired=s.livenessEnabled;session.configVersion=s.configVersion;session.galleryVersion=s.galleryVersion;session.expiresAt=attendance.now().plusSeconds(60);
         var actions=new ArrayList<>(List.of("BLINK","MOUTH"));Collections.shuffle(actions,new java.security.SecureRandom());session.actions=String.join(",",actions);
         String expiresAt=session.expiresAt.atZone(attendance.zone()).toOffsetDateTime().toString();
         algorithm.createSession(Map.of("sessionId",session.sessionId,"galleryVersion",s.galleryVersion,"configVersion",s.configVersion,"livenessRequired",s.livenessEnabled,"actions",actions,"threshold",s.recognitionThreshold,"margin",s.candidateMargin,"expiresAt",expiresAt));
@@ -51,15 +51,15 @@ public class KioskService {
         if(enrolled>1&&margin<settings.candidateMargin)throw Api.error(403,"IDENTITY_AMBIGUOUS","身份不稳定");
         if(!(result.get("employeeId") instanceof Number identity))throw Api.error(403,"IDENTITY_REJECTED","未识别到已录入人员");
         var employee=store.get(Employee.class,identity.longValue());if(!employee.active||!attendance.employed(employee,accepted.toLocalDate())||store.list(FaceTemplate.class,"where e.employeeId=?1",employee.id).isEmpty())throw Api.error(403,"EMPLOYEE_DISABLED","人员已停用或模板已删除");
-        if(!AttendanceEngine.inWindow(attendance.rule(accepted.toLocalDate()),session.type,accepted.toLocalTime()))throw Api.error(400,"OUTSIDE_WINDOW","非打卡时段");if(attendance.leave(employee.id,accepted.toLocalDate()))throw Api.error(409,"LEAVE_CONFLICT","今日已批准整天请假，不能打卡");
+        if(!session.testMode&&!AttendanceEngine.inWindow(attendance.rule(accepted.toLocalDate()),session.type,accepted.toLocalTime()))throw Api.error(400,"OUTSIDE_WINDOW","非打卡时段");if(!session.testMode&&attendance.leave(employee.id,accepted.toLocalDate()))throw Api.error(409,"LEAVE_CONFLICT","今日已批准整天请假，不能打卡");
         var health=gallery.ensure(settings);if(!Objects.equals(health.get("modelVersion"),result.get("modelVersion")))throw Api.error(409,"MODEL_CHANGED","模型版本变化，请重新开始");
         session.employeeId=employee.id;
-        var last=store.first(PunchEvent.class,"where e.employeeId=?1 and e.type=?2 order by e.acceptedAt desc",employee.id,session.type);
+        var last=store.first(PunchEvent.class,"where e.employeeId=?1 and e.type=?2 and e.source=?3 order by e.acceptedAt desc",employee.id,session.type,session.testMode?"FACE_TEST":"FACE");
         if(last.isPresent()&&last.get().acceptedAt.toLocalDate().equals(accepted.toLocalDate())&&Duration.between(last.get().acceptedAt,accepted).toMillis()<30_000){session.status="DUPLICATE";session.resultMessage="30秒内重复打卡，已保留原记录";store.flush();return publicResult(session);}
-        var event=new PunchEvent();event.employeeId=employee.id;event.type=session.type;event.acceptedAt=accepted;event.source="FACE";event.deviceId=deviceId;event.sessionId=id;event.livenessRequired=session.livenessRequired;event.livenessStatus=live;event.modelVersion=result.get("modelVersion").toString();event.configVersion=settings.configVersion;event.galleryVersion=settings.galleryVersion;store.save(event);store.flush();attendance.recalculate(employee,accepted.toLocalDate());
-        session.status="SUCCESS";session.resultMessage=session.type.equals("IN")?"上班签到成功":"下班签退成功";store.flush();return publicResult(session);
+        var event=new PunchEvent();event.employeeId=employee.id;event.type=session.type;event.acceptedAt=accepted;event.source=session.testMode?"FACE_TEST":"FACE";event.deviceId=deviceId;event.sessionId=id;event.livenessRequired=session.livenessRequired;event.livenessStatus=live;event.modelVersion=result.get("modelVersion").toString();event.configVersion=settings.configVersion;event.galleryVersion=settings.galleryVersion;store.save(event);store.flush();if(!session.testMode)attendance.recalculate(employee,accepted.toLocalDate());
+        session.status="SUCCESS";session.resultMessage=(session.testMode?"【测试】":"")+(session.type.equals("IN")?"上班签到成功":"下班签退成功");store.flush();return publicResult(session);
     }
-    Map<String,Object> publicResult(PunchSession s){var out=new LinkedHashMap<String,Object>();out.put("type",s.status.equals("FAILED")?"ERROR":"RESULT");out.put("sessionId",s.sessionId);out.put("status",s.status);out.put("message",s.resultMessage==null?"等待验证":s.resultMessage);
+    Map<String,Object> publicResult(PunchSession s){var out=new LinkedHashMap<String,Object>();out.put("type",s.status.equals("FAILED")?"ERROR":"RESULT");out.put("testMode",s.testMode);out.put("sessionId",s.sessionId);out.put("status",s.status);out.put("message",s.resultMessage==null?"等待验证":s.resultMessage);
         // Identity is visible only for three seconds, including polling/replay of a completed session.
         if(s.employeeId!=null&&s.updatedAt!=null&&!s.updatedAt.plusSeconds(3).isBefore(attendance.now())){var e=store.get(Employee.class,s.employeeId);out.put("employeeName",e.name.substring(0,1)+"*".repeat(Math.max(1,e.name.length()-1)));out.put("employeeNo","***"+e.employeeNo.substring(Math.max(0,e.employeeNo.length()-2)));}return out;}
 }

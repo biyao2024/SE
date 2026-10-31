@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { FrameBudget, maskedIdentity, captureRect } from '../src/cameraProtocol.mjs'
+import { FrameBudget, FramePacer, maskedIdentity, captureRect } from '../src/cameraProtocol.mjs'
 
 test('terminal camera transport rejects oversized, invalid and expired frames without consuming budget', () => {
   const budget = new FrameBudget(1000)
@@ -8,9 +8,9 @@ test('terminal camera transport rejects oversized, invalid and expired frames wi
   assert.equal(budget.accept(0, 1001), false)
   assert.equal(budget.accept(NaN, 1001), false)
   assert.equal(budget.accept(1, 999), false)
-  assert.equal(budget.accept(1, 13000), false)
+  assert.equal(budget.accept(1, 36000), false)
   assert.equal(budget.frames, 0)
-  assert.equal(budget.accept(200 * 1024, 12999), true)
+  assert.equal(budget.accept(200 * 1024, 35999), true)
 })
 test('a session cannot exceed 80 frames, including on a stalled or fast client clock', () => {
   const budget = new FrameBudget(0)
@@ -38,4 +38,13 @@ test('capture preserves face proportions for 4:3, widescreen and portrait camera
   assert.deepEqual(captureRect(480, 640), { x: 0, y: 140, width: 480, height: 360 })
   assert.equal(captureRect(0, 480), null)
   assert.equal(captureRect(640, NaN), null)
+})
+
+test('a greeting cannot acknowledge an outstanding frame; processed frames and reset release it', () => {
+  const pacer=new FramePacer()
+  assert.equal(pacer.canSend(),true)
+  pacer.sent(); assert.equal(pacer.canSend(),false)
+  pacer.reply({type:'PROMPT'}); assert.equal(pacer.canSend(),false)
+  pacer.reply({frameProcessed:true}); assert.equal(pacer.canSend(),true)
+  pacer.sent(); pacer.reset(); assert.equal(pacer.canSend(),true)
 })

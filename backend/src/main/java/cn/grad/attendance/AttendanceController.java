@@ -14,6 +14,11 @@ public class AttendanceController {
     public AttendanceController(AttendanceService service,AuthController auth) {this.service=service;this.auth=auth;}
     private List<Map<String,Object>> rows(LocalDate from,LocalDate to,Long employeeId,Long departmentId,String status) {var u=auth.current();Long own="ADMIN".equals(u.role)?null:auth.employee();if(own!=null&&employeeId!=null&&!own.equals(employeeId))throw Api.error(403,"FORBIDDEN","仅可查看自己的考勤");return service.query(own,from==null?service.today().withDayOfMonth(1):from,to==null?service.today():to,employeeId,departmentId,status);}
     @GetMapping Object list(@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(required=false) Long employeeId,@RequestParam(required=false) Long departmentId,@RequestParam(required=false) String status,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {return Api.ok(Api.page(rows(from,to,employeeId,departmentId,status),page,size));}
+    @GetMapping("/test-events") Object testEvents(@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to) {
+        var user=auth.current();Long own="ADMIN".equals(user.role)?null:auth.employee();
+        var start=from==null?service.today().withDayOfMonth(1):from;var end=to==null?service.today():to;service.validateRange(start,end);
+        return Api.ok(service.testEvents(own,start,end));
+    }
     @GetMapping("/summary") Object summary(@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(required=false) Long employeeId,@RequestParam(required=false) Long departmentId,@RequestParam(required=false) String status) {return Api.ok(service.summarize(rows(from,to,employeeId,departmentId,status)));}
     @GetMapping("/export") ResponseEntity<byte[]> export(@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(required=false) Long employeeId,@RequestParam(required=false) Long departmentId,@RequestParam(required=false) String status) throws Exception {
         var data=rows(from,to,employeeId,departmentId,status);

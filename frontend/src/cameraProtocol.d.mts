@@ -1,3 +1,4 @@
+export class FramePacer { canSend(): boolean; sent(): void; reply(message: {frameProcessed?: boolean}): void; reset(): void }
 export class FrameBudget {
   constructor(startedAt: number, options?: { maxFrames?: number; maxBytes?: number; maxFrameBytes?: number; durationMs?: number });
   frames: number; bytes: number;
