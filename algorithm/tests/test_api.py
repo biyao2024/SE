@@ -142,7 +142,11 @@ class ApiTests(unittest.TestCase):
             ws.send_bytes(b"test-frame")
             ws.receive_json()
             ws.send_bytes(b"second-person")
-            self.assertEqual(ws.receive_json()["code"], "IDENTITY_UNSTABLE")
+            failed = ws.receive_json()
+            self.assertEqual(failed["code"], "IDENTITY_UNSTABLE")
+            self.assertIn("diagnostics", failed)
+            self.assertIn("elapsedMs", failed["diagnostics"])
+            self.assertNotIn("embedding", failed["diagnostics"])
         self.start("test-session-0002")
         with self.client.websocket_connect("/internal/sessions/test-session-0002/stream", headers=self.headers) as ws:
             ws.receive_json()

@@ -125,4 +125,24 @@ class BusinessIntegrationTest {
         mvc.perform(put("/api/v1/settings").with(user("TEST-EMP").roles("EMPLOYEE")).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"testMode\":true}")).andExpect(status().isForbidden());
         assertThat(attendance.settings().testMode).isFalse();
     }
+    @Test void diagnosticsRequireAdministratorAndEnabledTestMode()throws Exception {
+        mvc.perform(post("/api/v1/kiosk/diagnostics/sessions").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"IN\"}")).andExpect(status().isUnauthorized());
+        employee("DIAG-EMP");
+        postJson("/api/v1/kiosk/diagnostics/sessions",Map.of("type","IN"),"DIAG-EMP","EMPLOYEE").andExpect(status().isForbidden());
+        postJson("/api/v1/kiosk/diagnostics/sessions",Map.of("type","IN"),"admin","ADMIN").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TEST_MODE_REQUIRED"));
+        var settings=attendance.settings();settings.testMode=true;settings.calibrationConfirmed=true;device();
+        mvc.perform(post("/api/v1/kiosk/diagnostics/sessions").with(user("admin").roles("ADMIN")).with(csrf()).cookie(new jakarta.servlet.http.Cookie("PUNCH_DEVICE","test-device")).contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"IN\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.data.sessionId").isNotEmpty());
+        var account=store.first(UserAccount.class,"where e.username='admin'").orElseThrow();account.enabled=false;
+        assertThatThrownBy(()->kiosk.diagnosticAccess("admin")).hasMessageContaining("有效管理员");
+    }
+    @Test void issuedDeviceCookieAlsoCoversDiagnosticCreationAndStreaming()throws Exception {
+        var response=postJson("/api/v1/devices",Map.of("name","Cookie path regression"),"admin","ADMIN").andExpect(status().isOk()).andReturn().getResponse();
+        var cookie=java.net.HttpCookie.parse(response.getHeader("Set-Cookie")).getFirst();
+        assertThat(cookie.getName()).isEqualTo("PUNCH_DEVICE");
+        assertThat("/api/v1/kiosk/diagnostics/sessions").startsWith(cookie.getPath()+"/");
+        assertThat("/api/v1/kiosk/diagnostics/stream").startsWith(cookie.getPath()+"/");
+        mvc.perform(get("/api/v1/kiosk/diagnostics/stream")).andExpect(status().isUnauthorized());
+        employee("DIAG-COOKIE-EMP");
+        mvc.perform(get("/api/v1/kiosk/diagnostics/stream").with(user("DIAG-COOKIE-EMP").roles("EMPLOYEE"))).andExpect(status().isForbidden());
+    }
 }

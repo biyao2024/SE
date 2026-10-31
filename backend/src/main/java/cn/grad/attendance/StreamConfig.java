@@ -22,16 +22,28 @@ public class StreamConfig implements WebSocketConfigurer {
     final ConcurrentHashMap<String,Bridge> active=new ConcurrentHashMap<>();
     public StreamConfig(KioskService kiosk,AlgorithmClient algorithm,ObjectMapper json,@Value("${app.allowed-origins}") String origins){this.kiosk=kiosk;this.algorithm=algorithm;this.json=json;this.origins=Arrays.stream(origins.split(",")).map(String::trim).toArray(String[]::new);}
     @Override public void registerWebSocketHandlers(WebSocketHandlerRegistry registry){
-        registry.addHandler(new Handler(),"/api/v1/kiosk/stream").setAllowedOrigins(origins).addInterceptors(new HandshakeInterceptor(){
+        registry.addHandler(new Handler(),"/api/v1/kiosk/stream","/api/v1/kiosk/diagnostics/stream").setAllowedOrigins(origins).addInterceptors(new HandshakeInterceptor(){
             public boolean beforeHandshake(ServerHttpRequest request,ServerHttpResponse response,WebSocketHandler handler,Map<String,Object> attributes){
                 try{String origin=request.getHeaders().getOrigin();if(origin==null||!Arrays.asList(origins).contains(origin))return false;
                     String id=UriComponentsBuilder.fromUri(request.getURI()).build().getQueryParams().getFirst("sessionId");UUID.fromString(id);
                     var servlet=((ServletServerHttpRequest)request).getServletRequest();String token=null;if(servlet.getCookies()!=null)for(var cookie:servlet.getCookies())if(cookie.getName().equals("PUNCH_DEVICE"))token=cookie.getValue();
+                    boolean diagnostic=request.getURI().getPath().equals("/api/v1/kiosk/diagnostics/stream");
+                    if(diagnostic){var principal=request.getPrincipal();if(principal==null)throw Api.error(403,"FORBIDDEN","请管理员登录");kiosk.diagnosticAccess(principal.getName());attributes.put("diagnostic",true);attributes.put("adminName",principal.getName());attributes.put("loginSession",servlet.getSession(false));}
                     var device=kiosk.device(token);kiosk.check(id,device.id);attributes.put("sessionId",id);attributes.put("deviceId",device.id);return true;
                 }catch(Exception e){response.setStatusCode(org.springframework.http.HttpStatus.FORBIDDEN);return false;}
             }
             public void afterHandshake(ServerHttpRequest request,ServerHttpResponse response,WebSocketHandler handler,Exception exception){}
         });
+    }
+    // Read the live HTTP session again on every frame and before forwarding metrics.
+    // A forged public query parameter can never enable this diagnostic route.
+    void diagnosticAccess(WebSocketSession browser){
+        if(!Boolean.TRUE.equals(browser.getAttributes().get("diagnostic")))return;
+        var session=(jakarta.servlet.http.HttpSession)browser.getAttributes().get("loginSession");
+        if(session==null)throw Api.error(403,"FORBIDDEN","管理员登录已失效");
+        Object value;try{value=session.getAttribute("SPRING_SECURITY_CONTEXT");}catch(IllegalStateException e){throw Api.error(403,"FORBIDDEN","管理员登录已失效");}
+        if(!(value instanceof org.springframework.security.core.context.SecurityContext context)||context.getAuthentication()==null||!context.getAuthentication().isAuthenticated()||!context.getAuthentication().getName().equals(browser.getAttributes().get("adminName")))throw Api.error(403,"FORBIDDEN","管理员登录已失效");
+        kiosk.diagnosticAccess(context.getAuthentication().getName());
     }
     class Bridge implements WebSocket.Listener {
         final String id;final Long deviceId;final WebSocketSession browser;final AtomicBoolean finished=new AtomicBoolean();final StringBuilder incoming=new StringBuilder();
@@ -43,7 +55,13 @@ public class StreamConfig implements WebSocketConfigurer {
         public void onOpen(WebSocket socket){internal=socket;socket.request(1);send(Map.of("type","PROMPT","message","请自然睁眼、闭嘴并正对镜头","action","BASELINE","streamReady",true));}
         public CompletionStage<?> onText(WebSocket socket,CharSequence data,boolean last){
             incoming.append(data);if(incoming.length()>16000){error("算法响应超过限制");return CompletableFuture.completedFuture(null);}
-            if(last){String text=incoming.toString();incoming.setLength(0);try{var event=algorithm.map(text);String type=String.valueOf(event.get("type"));if(type.equals("RESULT")){if(finished.compareAndSet(false,true)){try{var result=kiosk.finish(id,deviceId,event);send(result);}catch(Api.Failure e){kiosk.failed(id,deviceId,e.getMessage());send(Map.of("type","ERROR","message",e.getMessage()));}finally{close();}}}else if(type.equals("ERROR")){error(String.valueOf(event.getOrDefault("message","动作验证失败")));}else{if(Boolean.TRUE.equals(event.get("frameProcessed")))busy=false;send(Map.of("type","PROMPT","message",event.getOrDefault("message","请保持正对镜头"),"action",event.getOrDefault("action","BASELINE"),"frameProcessed",Boolean.TRUE.equals(event.get("frameProcessed"))));}}catch(Exception e){error("算法响应异常，请重试");}}
+            if(last){String text=incoming.toString();incoming.setLength(0);try{var event=algorithm.map(text);String type=String.valueOf(event.get("type"));
+                if(Boolean.TRUE.equals(browser.getAttributes().get("diagnostic"))&&event.get("diagnostics") instanceof Map<?,?> raw){
+                    diagnosticAccess(browser);var safe=new LinkedHashMap<String,Object>();
+                    for(String key:List.of("frame","score","margin","candidateCount","referenceSimilarity","eyeLeft","eyeRight","mouth","action","phase","elapsedMs","threshold","marginThreshold","gate","qualityCode","baselineFrames","stableFrames","completedActions","neutralEyeMax","closedEyeMin","mouthClosedMax","mouthOpenMin"))if(raw.containsKey(key))safe.put(key,raw.get(key));
+                    send(Map.of("type","DIAGNOSTIC","values",safe));
+                }
+                if(type.equals("RESULT")){if(finished.compareAndSet(false,true)){try{var result=kiosk.finish(id,deviceId,event);send(result);}catch(Api.Failure e){kiosk.failed(id,deviceId,e.getMessage());send(Map.of("type","ERROR","message",e.getMessage()));}finally{close();}}}else if(type.equals("ERROR")){error(String.valueOf(event.getOrDefault("message","动作验证失败")));}else{if(Boolean.TRUE.equals(event.get("frameProcessed")))busy=false;send(Map.of("type","PROMPT","message",event.getOrDefault("message","请保持正对镜头"),"action",event.getOrDefault("action","BASELINE"),"frameProcessed",Boolean.TRUE.equals(event.get("frameProcessed"))));}}catch(Exception e){error("算法响应异常，请重试");}}
             socket.request(1);return CompletableFuture.completedFuture(null);
         }
         public CompletionStage<?> onClose(WebSocket socket,int code,String reason){if(!finished.get())error("算法连接中断，请重新开始");return CompletableFuture.completedFuture(null);}
@@ -56,9 +74,9 @@ public class StreamConfig implements WebSocketConfigurer {
         }
         @Override protected void handleBinaryMessage(WebSocketSession session,BinaryMessage message){var b=active.get((String)session.getAttributes().get("sessionId"));if(b==null||b.browser!=session||b.finished.get())return;
             if(!message.isLast()){b.error("不接受分片帧");return;}
-            try{kiosk.check(b.id,b.deviceId);int size=message.getPayloadLength();if(size<4||size>200*1024||++b.frames>80||(b.bytes+=size)>12*1024*1024){b.error("采集超过体积或帧数限制");return;}
-                long now=System.nanoTime();if(b.firstFrameNanos==0){b.firstFrameNanos=now;CompletableFuture.delayedExecutor(35,TimeUnit.SECONDS).execute(()->{if(!b.finished.get())b.error("动作验证超时");});}
-                if(now-b.firstFrameNanos>Duration.ofSeconds(35).toNanos()){b.error("动作验证超时");return;}
+            try{diagnosticAccess(session);kiosk.check(b.id,b.deviceId);int size=message.getPayloadLength();if(size<4||size>200*1024||++b.frames>80||(b.bytes+=size)>12*1024*1024){b.error("采集超过体积或帧数限制");return;}
+                long now=System.nanoTime();if(b.firstFrameNanos==0){b.firstFrameNanos=now;CompletableFuture.delayedExecutor(50,TimeUnit.SECONDS).execute(()->{if(!b.finished.get())b.error("动作验证超时");});}
+                if(now-b.firstFrameNanos>Duration.ofSeconds(50).toNanos()){b.error("动作验证超时");return;}
                 if(b.internal==null||b.busy)return;b.busy=true;byte[] bytes=new byte[size];message.getPayload().get(bytes);b.internal.sendBinary(ByteBuffer.wrap(bytes),true).whenComplete((socket,error)->{if(error!=null)b.error("算法连接中断");});
             }catch(Api.Failure e){b.error(e.getMessage());}catch(Exception e){b.error("验证失败，请重新开始");}
         }

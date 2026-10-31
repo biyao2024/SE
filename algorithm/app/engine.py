@@ -90,13 +90,12 @@ class FaceEngine:
                 import mediapipe as mp
                 import numpy as np
                 from PIL import Image
-                from insightface.app import FaceAnalysis
+                from .cpu_runtime import make_cpu_face_analysis
                 self.cv2, self.mp, self.np, self.Image = cv2, mp, np, Image
                 # A complete verified local directory prevents InsightFace's download fallback.
-                self.face = FaceAnalysis(name=self.settings.insightface_model,
-                                         root=str(self.settings.model_dir / "insightface"),
-                                         allowed_modules=["detection", "recognition", "landmark_3d_68"],
-                                         providers=["CPUExecutionProvider"])
+                self.face = make_cpu_face_analysis(
+                    self.settings.model_dir / "insightface" / "models" / self.settings.insightface_model,
+                    self.settings.inference_threads)
                 self.face.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.6)
                 self.runtime_providers = validate_runtime_models(self.face)
                 options = mp.tasks.vision.FaceLandmarkerOptions(

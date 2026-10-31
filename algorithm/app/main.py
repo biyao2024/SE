@@ -246,6 +246,8 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
         await websocket.accept()
         session = None
         claimed = False
+        diagnostics = None
+        frame_started = None
         try:
             require_ready()
             with registry.lock:
@@ -266,17 +268,24 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
                 if message.get("bytes") is None:
                     raise Rejected("INVALID_FRAME", "只接受JPEG二进制帧")
                 jpeg = message["bytes"]
+                frame_started = time.monotonic()
+                diagnostics = None
                 session.accept_frame(len(jpeg), registry.gallery.version)
                 try:
                     observation = await asyncio.to_thread(engine.observe, jpeg, session.liveness_required)
                 except Rejected as error:
+                    diagnostics = {"frame": session.frame_count, "gate": "QUALITY", "qualityCode": error.code,
+                                   "elapsedMs": round((time.monotonic()-frame_started)*1000, 2)}
                     if error.code in {"NO_FACE", "LOW_QUALITY"} and session.identity is None:
                         session.check(registry.gallery.version)
-                        await websocket.send_json({"type": "PROMPT", "code": error.code, "message": error.message, "frameProcessed": True})
+                        await websocket.send_json({"type": "PROMPT", "code": error.code, "message": error.message, "frameProcessed": True, "diagnostics": diagnostics})
                         continue
                     raise
                 with registry.lock:
+                    diagnostics = session.diagnostics(observation, registry.gallery)
                     output = session.process(observation, registry.gallery, engine.model_version)
+                diagnostics["elapsedMs"] = round((time.monotonic()-frame_started)*1000, 2)
+                output["diagnostics"] = diagnostics
                 output["frameProcessed"] = True
                 await websocket.send_json(output)
                 if output["type"] == "RESULT":
@@ -284,7 +293,9 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
         except TimeoutError:
             await websocket.send_json({"type": "ERROR", "code": "TIMEOUT", "message": "验证超时，请重新开始"})
         except Rejected as error:
-            await websocket.send_json({"type": "ERROR", "code": error.code, "message": error.message})
+            if diagnostics is not None and frame_started is not None:
+                diagnostics["elapsedMs"] = round((time.monotonic()-frame_started)*1000, 2)
+            await websocket.send_json({"type": "ERROR", "code": error.code, "message": error.message, "diagnostics": diagnostics})
         except WebSocketDisconnect:
             pass
         except Exception:

@@ -8,9 +8,9 @@ test('terminal camera transport rejects oversized, invalid and expired frames wi
   assert.equal(budget.accept(0, 1001), false)
   assert.equal(budget.accept(NaN, 1001), false)
   assert.equal(budget.accept(1, 999), false)
-  assert.equal(budget.accept(1, 36000), false)
+  assert.equal(budget.accept(1, 51000), false)
   assert.equal(budget.frames, 0)
-  assert.equal(budget.accept(200 * 1024, 35999), true)
+  assert.equal(budget.accept(200 * 1024, 50999), true)
 })
 test('a session cannot exceed 80 frames, including on a stalled or fast client clock', () => {
   const budget = new FrameBudget(0)

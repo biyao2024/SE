@@ -10,6 +10,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class KioskService {
     final Store store;final AttendanceService attendance;final GalleryService gallery;final AlgorithmClient algorithm;
     public KioskService(Store store,AttendanceService attendance,GalleryService gallery,AlgorithmClient algorithm){this.store=store;this.attendance=attendance;this.gallery=gallery;this.algorithm=algorithm;}
+    @Transactional public void diagnosticAccess(String username) {
+        var user=store.first(UserAccount.class,"where e.username=?1",username).orElseThrow(()->Api.error(403,"FORBIDDEN","管理员诊断需要有效登录"));
+        if(!user.enabled||!"ADMIN".equals(user.role)||user.mustChangePassword||(user.employeeId!=null&&!store.get(Employee.class,user.employeeId).active))throw Api.error(403,"FORBIDDEN","管理员诊断需要有效管理员账号");
+        if(!settingsForDiagnostic())throw Api.error(409,"TEST_MODE_REQUIRED","请先开启全天测试打卡并保存");
+    }
+    private boolean settingsForDiagnostic(){return attendance.settings().testMode;}
     public Device device(String token){if(token==null||token.isBlank())throw Api.error(403,"DEVICE_UNAUTHORIZED","设备未授权，请管理员在本浏览器授权");var device=store.first(Device.class,"where e.tokenHash=?1",Crypto.hash(token)).orElseThrow(()->Api.error(403,"DEVICE_UNAUTHORIZED","设备未授权"));if(device.revoked||!device.expiresAt.isAfter(attendance.now()))throw Api.error(403,"DEVICE_UNAUTHORIZED","设备授权已撤销或过期");return device;}
     public Object status(String token){
         var d=device(token);var s=attendance.settings();var h=algorithm.health();
