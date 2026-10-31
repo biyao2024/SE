@@ -272,11 +272,12 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
                 except Rejected as error:
                     if error.code in {"NO_FACE", "LOW_QUALITY"} and session.identity is None:
                         session.check(registry.gallery.version)
-                        await websocket.send_json({"type": "PROMPT", "code": error.code, "message": error.message})
+                        await websocket.send_json({"type": "PROMPT", "code": error.code, "message": error.message, "frameProcessed": True})
                         continue
                     raise
                 with registry.lock:
                     output = session.process(observation, registry.gallery, engine.model_version)
+                output["frameProcessed"] = True
                 await websocket.send_json(output)
                 if output["type"] == "RESULT":
                     break

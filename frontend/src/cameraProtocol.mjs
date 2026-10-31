@@ -1,6 +1,13 @@
 /** Local transport limits are a second boundary; the server independently enforces them. */
+export class FramePacer {
+  constructor() { this.waiting = false }
+  canSend() { return !this.waiting }
+  sent() { this.waiting = true }
+  reply(message) { if (message.frameProcessed === true) this.waiting = false }
+  reset() { this.waiting = false }
+}
 export class FrameBudget {
-  constructor(startedAt, { maxFrames = 80, maxBytes = 12 * 1024 * 1024, maxFrameBytes = 200 * 1024, durationMs = 12000 } = {}) {
+  constructor(startedAt, { maxFrames = 80, maxBytes = 12 * 1024 * 1024, maxFrameBytes = 200 * 1024, durationMs = 35000 } = {}) {
     this.startedAt = startedAt; this.maxFrames = maxFrames; this.maxBytes = maxBytes; this.maxFrameBytes = maxFrameBytes; this.durationMs = durationMs; this.frames = 0; this.bytes = 0
   }
   accept(size, now) {

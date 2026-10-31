@@ -23,7 +23,7 @@ public class AttendanceService {
     public boolean workday(LocalDate date) {return store.first(CalendarDay.class,"where e.date=?1",date).map(d->d.workday).orElse(date.getDayOfWeek()!=DayOfWeek.SATURDAY&&date.getDayOfWeek()!=DayOfWeek.SUNDAY);}
     public boolean employed(Employee e,LocalDate date) {return !date.isBefore(e.startDate)&&(e.endDate==null||date.isBefore(e.endDate));}
     public boolean leave(Long employeeId,LocalDate date) {return !store.list(LeaveRequest.class,"where e.employeeId=?1 and e.status='APPROVED' and e.startDate<=?2 and e.endDate>=?2",employeeId,date).isEmpty();}
-    public List<PunchEvent> events(Long employeeId,LocalDate date) {return store.list(PunchEvent.class,"where e.employeeId=?1 and e.acceptedAt>=?2 and e.acceptedAt<?3 order by e.acceptedAt",employeeId,date.atStartOfDay(),date.plusDays(1).atStartOfDay());}
+    public List<PunchEvent> events(Long employeeId,LocalDate date) {return store.list(PunchEvent.class,"where e.source<>'FACE_TEST' and e.employeeId=?1 and e.acceptedAt>=?2 and e.acceptedAt<?3 order by e.acceptedAt",employeeId,date.atStartOfDay(),date.plusDays(1).atStartOfDay());}
     public List<CorrectionRequest> corrections(Long employeeId,LocalDate date) {return store.list(CorrectionRequest.class,"where e.employeeId=?1 and e.date=?2 and e.status='APPROVED'",employeeId,date);}
     public Daily recalculate(Employee employee,LocalDate date) {
         Daily daily=store.first(Daily.class,"where e.employeeId=?1 and e.date=?2",employee.id,date).orElseGet(()->{var d=new Daily();d.employeeId=employee.id;d.date=date;return d;});
@@ -71,6 +71,15 @@ public class AttendanceService {
             var until=e.endDate==null?today():e.endDate.minusDays(1);
             for(var day=e.startDate;!day.isAfter(until)&&!day.isAfter(today());day=day.plusDays(1))if(!done.contains(day))recalculate(e,day);
         }
+    }
+    @Transactional public List<Map<String,Object>> testEvents(Long own,LocalDate start,LocalDate end) {
+        var records=new ArrayList<Map<String,Object>>();
+        for(var event:store.list(cn.grad.attendance.Domain.PunchEvent.class,"where e.source='FACE_TEST' and e.acceptedAt>=?1 and e.acceptedAt<?2 order by e.acceptedAt desc",start.atStartOfDay(),end.plusDays(1).atStartOfDay())) {
+            if(own!=null&&!own.equals(event.employeeId))continue;
+            var employee=store.get(cn.grad.attendance.Domain.Employee.class,event.employeeId);
+            records.add(Map.of("id",event.id,"employeeName",employee.name,"employeeNo",employee.employeeNo,"acceptedAt",event.acceptedAt,"type",event.type,"source",event.source,"livenessStatus",event.livenessStatus));
+        }
+        return records;
     }
     public void audit(Long actor,String action,String target,String detail) {var a=new Audit();a.actorId=actor;a.action=action;a.target=target;a.detail=detail;store.save(a);}
 }
