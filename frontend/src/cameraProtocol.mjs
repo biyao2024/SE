@@ -7,7 +7,7 @@ export class FramePacer {
   reset() { this.waiting = false }
 }
 export class FrameBudget {
-  constructor(startedAt, { maxFrames = 80, maxBytes = 12 * 1024 * 1024, maxFrameBytes = 200 * 1024, durationMs = 35000 } = {}) {
+  constructor(startedAt, { maxFrames = 80, maxBytes = 12 * 1024 * 1024, maxFrameBytes = 200 * 1024, durationMs = 50000 } = {}) {
     this.startedAt = startedAt; this.maxFrames = maxFrames; this.maxBytes = maxBytes; this.maxFrameBytes = maxFrameBytes; this.durationMs = durationMs; this.frames = 0; this.bytes = 0
   }
   accept(size, now) {

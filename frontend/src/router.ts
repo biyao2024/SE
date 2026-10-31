@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from './stores/auth'
 export const router = createRouter({ history: createWebHistory(), routes: [
   { path: '/login', component: () => import('./views/Login.vue'), meta: { public: true } },
+  { path: '/diagnostics', component: () => import('./views/Kiosk.vue'), props: { diagnostic: true }, meta: { title: '识别诊断', admin: true } },
   { path: '/kiosk', component: () => import('./views/Kiosk.vue'), meta: { public: true } },
   { path: '/', component: () => import('./components/AppLayout.vue'), children: [
     { path: '', component: () => import('./views/Dashboard.vue'), meta: { title: '考勤概览' } },

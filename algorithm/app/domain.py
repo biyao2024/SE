@@ -10,11 +10,17 @@ from typing import Iterable
 MAX_FRAME_BYTES = 200 * 1024
 MAX_FRAMES = 80
 MAX_SESSION_BYTES = 12 * 1024 * 1024
-MAX_CAPTURE_SECONDS = 35.0
+MAX_CAPTURE_SECONDS = 50.0
 # Capture has its own budget, separate from the longer session creation lifetime.
 # Browser capture limits must remain consistent with this value.
 MAX_SESSION_SECONDS = 60.0
 EMBEDDING_SIZE = 512
+# Research operating points: separated open/closed bands retain hysteresis.
+# Natural eye coefficients around 0.21--0.26 must not stall baseline forever.
+EYE_OPEN_MAX = 0.30
+EYE_CLOSED_MIN = 0.55
+MOUTH_CLOSED_MAX = 0.15
+MOUTH_OPEN_MIN = 0.35
 
 
 class Rejected(Exception):
@@ -95,7 +101,7 @@ class Observation:
 
     @property
     def neutral(self) -> bool:
-        return max(self.eye_left, self.eye_right) <= 0.20 and self.mouth <= 0.15
+        return max(self.eye_left, self.eye_right) <= EYE_OPEN_MAX and self.mouth <= MOUTH_CLOSED_MAX
 
 
 @dataclass
@@ -106,11 +112,11 @@ class ActionTracker:
 
     def update(self, obs: Observation) -> bool:
         if self.action == "BLINK":
-            neutral = max(obs.eye_left, obs.eye_right) <= 0.20
-            active = min(obs.eye_left, obs.eye_right) >= 0.55
+            neutral = max(obs.eye_left, obs.eye_right) <= EYE_OPEN_MAX
+            active = min(obs.eye_left, obs.eye_right) >= EYE_CLOSED_MIN
             holds = (2, 1, 2)  # At 6 fps a real blink may occupy just one closed frame.
         else:
-            neutral, active = obs.mouth <= 0.15, obs.mouth >= 0.35
+            neutral, active = obs.mouth <= MOUTH_CLOSED_MAX, obs.mouth >= MOUTH_OPEN_MIN
             holds = (2, 2, 2)
         expected = active if self.phase == 1 else neutral
         self.count = self.count + 1 if expected else 0
@@ -165,6 +171,27 @@ class Session:
         self.frame_count += 1
         self.byte_count += length
 
+    def diagnostics(self, obs: Observation, gallery: Gallery) -> dict:
+        match = gallery.search(obs.embedding)
+        reference = cosine(self.baseline, obs.embedding) if self.baseline is not None else None
+        gate = "PASS"
+        if match is None: gate = "EMPTY_GALLERY"
+        elif match.score < self.threshold: gate = "MATCH_SCORE"
+        elif match.candidate_count > 1 and match.margin < self.margin: gate = "CANDIDATE_MARGIN"
+        elif self.identity is not None and match.employee_id != self.identity: gate = "CANDIDATE_CHANGED"
+        elif reference is not None and reference < self.threshold: gate = "REFERENCE_SIMILARITY"
+        action = self.actions[self.action_index] if self.liveness_required and self.action_index < len(self.actions) else "NONE"
+        return {"frame": self.frame_count, "score": match.score if match else None,
+                "margin": match.margin if match and match.candidate_count > 1 else None,
+                "candidateCount": match.candidate_count if match else 0,
+                "referenceSimilarity": reference, "eyeLeft": obs.eye_left if self.liveness_required else None,
+                "eyeRight": obs.eye_right if self.liveness_required else None, "mouth": obs.mouth if self.liveness_required else None,
+                "action": action, "phase": self.tracker.phase if self.tracker else -1,
+                "threshold": self.threshold, "marginThreshold": self.margin, "gate": gate, "qualityCode": None,
+                "baselineFrames": self.neutral_frames, "stableFrames": self.stable_frames,
+                "completedActions": self.action_index, "neutralEyeMax": EYE_OPEN_MAX,
+                "closedEyeMin": EYE_CLOSED_MIN, "mouthClosedMax": MOUTH_CLOSED_MAX, "mouthOpenMin": MOUTH_OPEN_MIN}
+
     def process(self, obs: Observation, gallery: Gallery, model_version: str, now: float | None = None) -> dict:
         self.check(gallery.version, now)
         match = gallery.search(obs.embedding)
@@ -185,8 +212,10 @@ class Session:
         if self.tracker is None and self.action_index == 0:
             self.neutral_frames = self.neutral_frames + 1 if obs.neutral else 0
             if self.neutral_frames < 2:
-                return {"type": "PROMPT", "message": "请自然睁眼、闭嘴，建立基准状态"}
-            self.tracker = ActionTracker(self.actions[0])
+                return {"type": "PROMPT", "message": f"建立基准：请自然睁眼、闭嘴（{self.neutral_frames}/2）；先不要做动作"}
+            # Two natural baseline frames already established the initial state.
+            # Do not demand the same natural state twice before the first action.
+            self.tracker = ActionTracker(self.actions[0], phase=1)
             return self.prompt()
         if self.action_index < len(self.actions):
             if self.tracker.update(obs):
@@ -205,8 +234,8 @@ class Session:
         action = self.actions[self.action_index]
         phase = self.tracker.phase if self.tracker is not None else 0
         messages = {
-            "BLINK": ("请先自然睁眼，等待闭眼提示", "请缓慢闭合双眼并保持片刻", "请睁开双眼，保持正对镜头"),
-            "MOUTH": ("请先自然闭嘴，等待张嘴提示", "请张嘴并保持片刻", "请闭嘴，保持正对镜头"),
+            "BLINK": ("请先自然睁眼，等待闭眼提示", "请缓慢闭合双眼约2秒，再自然睁开", "请睁开双眼，保持正对镜头"),
+            "MOUTH": ("请先自然闭嘴，等待张嘴提示", "请适度张嘴，不要用力张大；保持到闭嘴提示", "请闭嘴，保持正对镜头"),
         }
         return {"type": "PROMPT", "action": action,
                 "message": messages[action][phase]}

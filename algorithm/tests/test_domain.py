@@ -115,7 +115,7 @@ class SessionTests(unittest.TestCase):
         start = current.deadline - 60
         current.accept_frame(MAX_FRAME_BYTES, 1, start)
         with self.assertRaises(Rejected):
-            current.accept_frame(1, 1, start + 35)
+            current.accept_frame(1, 1, start + 50)
         current = session()
         with self.assertRaises(Rejected):
             current.accept_frame(MAX_FRAME_BYTES + 1, 1)

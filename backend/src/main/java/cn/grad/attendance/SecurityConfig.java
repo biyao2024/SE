@@ -35,6 +35,7 @@ public class SecurityConfig {
         http.securityContext(c->c.securityContextRepository(contexts))
             .csrf(c->c.csrfTokenRepository(csrf))
             .authorizeHttpRequests(a->a
+                .requestMatchers("/api/v1/kiosk/diagnostics/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/auth/csrf","/api/v1/auth/login","/api/v1/kiosk/**","/api/v1/health","/error").permitAll()
                 .requestMatchers("/api/v1/auth/**","/api/v1/attendance/**","/api/v1/leave-requests/**","/api/v1/correction-requests/**").authenticated()
                 .anyRequest().hasRole("ADMIN"))
