@@ -1,0 +1,10 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '../stores/auth'
+import { errorText } from '../api'
+const auth = useAuth(), router = useRouter(), route = useRoute()
+const username = ref(''), password = ref(''), loading = ref(false), error = ref(route.query.reason === 'expired' ? '登录已过期，请重新登录。' : route.query.reason === 'unavailable' ? '业务服务暂时不可用，请确认服务已启动后重试。' : '')
+async function submit() { if (!username.value.trim() || !password.value) { error.value = '请输入账号和密码'; return }; loading.value = true; error.value = ''; try { await auth.login(username.value.trim(), password.value); const dest = String(route.query.redirect || '/'); await router.replace(auth.user?.mustChangePassword ? '/password' : dest.startsWith('/') && !dest.startsWith('//') ? dest : '/') } catch (e) { error.value = errorText(e) } finally { loading.value = false } }
+</script>
+<template><div class="login-page"><section class="login-story"><div class="brand"><span class="brand-mark">知</span><div>知行<small>SMART ATTENDANCE</small></div></div><div><div class="eyebrow">A BETTER START, EVERY DAY</div><h1>每一天的认真，<br>都值得被记录。</h1><p>从一次轻松的刷脸开始，<br>让出勤、审批与协作井然有序。</p></div><div class="help-text">人脸识别考勤系统 · 毕业设计研究项目</div></section><section class="login-form-area"><div class="login-form"><div class="eyebrow">WELCOME TO ZHIXING</div><h2>欢迎回来</h2><p class="muted">登录账号，开启今天的工作。</p><el-alert v-if="error" :title="error" type="error" show-icon :closable="false"/><el-form label-position="top" @submit.prevent="submit"><el-form-item label="账号"><el-input v-model="username" placeholder="请输入登录账号" autocomplete="username" maxlength="64"/></el-form-item><el-form-item label="密码"><el-input v-model="password" type="password" show-password placeholder="请输入密码" autocomplete="current-password"/></el-form-item><el-button type="primary" native-type="submit" :loading="loading" style="width:100%;margin-top:12px">登录工作空间</el-button></el-form><div class="login-footer">在公共设备上？<router-link to="/kiosk" style="color:#147d69">前往刷脸打卡 →</router-link></div><p class="footnote">账号由管理员创建。首次登录须修改初始密码；忘记密码请联系管理员。</p></div></section></div></template>

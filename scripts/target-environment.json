@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "source": "另一台电脑环境清单与执行计划.md (2026-10-23)",
+  "platform": "win32",
+  "architecture": "x64",
+  "javaMajor": 21,
+  "nodeVersion": "24.18.0",
+  "pnpmVersion": "11.25.0",
+  "pythonMinor": "3.11",
+  "pipVersion": "24.0",
+  "inferenceProvider": "CPUExecutionProvider",
+  "paths": {
+    "javaHome": ".toolchain/jdk",
+    "nodeHome": ".toolchain/node",
+    "pnpm": ".toolchain/pnpm/node_modules/pnpm/dist/pnpm.mjs",
+    "pythonBase": ".toolchain/python311/python.exe",
+    "python": "algorithm/.venv-runtime/Scripts/python.exe",
+    "models": "algorithm/models"
+  },
+  "frontendDependencies": {
+    "@element-plus/icons-vue": "2.3.2",
+    "@types/node": "22.20.5",
+    "vue": "3.5.44",
+    "vue-router": "4.6.4",
+    "pinia": "3.0.4",
+    "element-plus": "2.14.7",
+    "echarts": "5.6.0",
+    "vite": "7.3.7",
+    "typescript": "5.9.3",
+    "vue-tsc": "3.3.13",
+    "@vitejs/plugin-vue": "6.0.10"
+  },
+  "pythonDependencies": {
+    "fastapi": "0.121.3",
+    "starlette": "0.49.3",
+    "pydantic": "2.12.4",
+    "uvicorn": "0.38.0",
+    "python-multipart": "0.0.20",
+    "numpy": "1.26.4",
+    "insightface": "0.7.3",
+    "onnxruntime": "1.20.1",
+    "mediapipe": "0.10.21",
+    "opencv-contrib-python": "4.11.0.86",
+    "opencv-python-headless": "4.11.0.86",
+    "Pillow": "11.2.1",
+    "albumentations": "1.4.3"
+  }
+}

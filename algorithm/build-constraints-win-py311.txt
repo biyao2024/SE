@@ -1,0 +1,3 @@
+# Build isolation must use the same NumPy major/ABI as the pinned CPU runtime.
+# Direct runtime requirements remain in requirements.txt and requirements-api.txt.
+numpy==1.26.4

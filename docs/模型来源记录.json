@@ -1,0 +1,13 @@
+{
+  "buffalo_l": {
+    "url": "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
+    "bytes": 288621354,
+    "sha256": "80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f",
+    "verification": "Official HTTPS release asset; exact Content-Range totals; ZIP CRC passed. SHA256 is locally computed, not an official signature."
+  },
+  "face_landmarker": {
+    "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+    "bytes": 3758596,
+    "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff"
+  }
+}

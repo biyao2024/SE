@@ -1,0 +1,17 @@
+{
+  "modelName": "buffalo_l",
+  "recordedAt": "2026-10-23T15:48:14.316170+00:00",
+  "sources": [
+    "https://github.com/deepinsight/insightface/releases/tag/v0.7",
+    "https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker"
+  ],
+  "sha256": {
+    "face_landmarker.task": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+    "insightface/models/buffalo_l/1k3d68.onnx": "df5c06b8a0c12e422b2ed8947b8869faa4105387f199c477af038aa01f9a45cc",
+    "insightface/models/buffalo_l/2d106det.onnx": "f001b856447c413801ef5c42091ed0cd516fcd21f2d6b79635b1e733a7109dbf",
+    "insightface/models/buffalo_l/det_10g.onnx": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+    "insightface/models/buffalo_l/genderage.onnx": "4fde69b1c810857b88c64a335084f1c3fe8f01246c9a191b48c7bb756d6652fb",
+    "insightface/models/buffalo_l/w600k_r50.onnx": "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43"
+  },
+  "notice": "Locally computed hashes detect subsequent change; independently verify downloads and license before registration."
+}

@@ -1,0 +1,12 @@
+# Reproduce the agreed Windows toolchain from package.json engines/packageManager.
+packages:
+  - .
+engineStrict: true
+# Keep dependency layout independent of machine-wide/CI global-store defaults.
+enableGlobalVirtualStore: false
+# Scripts must never silently reinstall through an unrelated pnpm/Node on PATH.
+verifyDepsBeforeRun: error
+# No package other than this exact, locked esbuild may run install/build scripts.
+allowBuilds:
+  esbuild@0.28.2: true
+strictDepBuilds: true

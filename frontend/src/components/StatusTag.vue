@@ -1,0 +1,2 @@
+<script setup lang="ts">import { statusNames, statusType } from '../composables'; defineProps<{status:string;late?:boolean;early?:boolean;request?:boolean}>()</script>
+<template><div class="status-stack"><el-tag :type="statusType(status)">{{request&&status==='PENDING'?'待审批':statusNames[status]||status}}</el-tag><el-tag v-if="late" type="warning">迟到</el-tag><el-tag v-if="early" type="warning">早退</el-tag></div></template>

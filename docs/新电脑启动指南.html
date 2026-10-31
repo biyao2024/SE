@@ -1,0 +1,246 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>新电脑启动指南 · 人脸考勤项目</title><style>
+:root{color-scheme:light;--ink:#182b3b;--muted:#516371;--line:#dce5eb;--accent:#086d6a}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{margin:0;background:#f3f6f7;color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;font-size:16px;line-height:1.85}
+.layout{display:grid;grid-template-columns:245px minmax(0,880px);gap:32px;max-width:1200px;margin:auto;padding:40px 24px 80px}
+aside{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:auto;padding:20px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.brand{font-size:13px;letter-spacing:2px;color:var(--accent);font-weight:700}.toc-title{font-weight:700;margin:10px 0}.toc a{display:block;padding:6px 0;font-size:13px;line-height:1.6;color:#405566;text-decoration:none}.toc a:hover{color:var(--accent)}
+main{min-width:0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:36px 42px;box-shadow:0 8px 36px #173b5110}
+h1{font-size:32px;line-height:1.4;letter-spacing:-.5px;margin:0 0 16px}h2{font-size:23px;line-height:1.5;margin:42px 0 18px;padding-top:16px;border-top:1px solid var(--line)}h3{font-size:18px;margin:26px 0 12px}
+p{margin:14px 0}a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:3px;overflow-wrap:anywhere}strong{font-weight:700}
+ul,ol{padding-left:26px}li{margin:9px 0}code{font-family:Consolas,"Cascadia Code",monospace;font-size:.88em;overflow-wrap:anywhere;background:#edf3f4;border-radius:4px;padding:2px 5px}
+.code-block{border:1px solid #cfdee2;border-radius:8px;margin:14px 0;overflow:hidden;background:#f3f8f9}.code-label{padding:6px 14px;color:#47646d;border-bottom:1px solid #dce7e9;font-size:12px;letter-spacing:.3px}pre{margin:0;padding:14px 16px;overflow-x:auto;line-height:1.7}pre code{white-space:pre;overflow-wrap:normal;padding:0;background:none;color:#123b49;font-size:14px}
+.table-wrap{overflow-x:auto;margin:18px 0;border:1px solid var(--line);border-radius:8px}table{width:100%;border-collapse:collapse;font-size:14px;text-align:left;line-height:1.7}th{background:#eaf2f3;color:#244f56}th,td{padding:11px 13px;vertical-align:top;border-bottom:1px solid var(--line)}tbody tr:last-child td{border-bottom:0}td{overflow-wrap:anywhere}
+.footnote{font-size:12px;color:var(--muted);margin-top:24px}.print-button{display:block;width:100%;margin-top:18px;padding:8px;border:1px solid #bfd4d6;border-radius:6px;background:#edf6f5;color:#145653;cursor:pointer;font:inherit;font-size:13px}
+@media(max-width:950px){.layout{display:block;padding:16px}aside{position:static;max-height:none;margin-bottom:16px;padding:14px 18px}.toc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}main{padding:24px}.print-button{width:auto;padding:6px 14px}h1{font-size:28px}}
+@media(max-width:520px){.layout{padding:10px}main{padding:22px 16px;border-radius:10px}body{font-size:15px}h1{font-size:25px}h2{font-size:21px}h3{font-size:17px}.toc{display:block}.toc a{padding:4px 0}th,td{padding:9px;min-width:100px}}
+@media print{body{background:#fff;font-size:10.5pt}.layout{display:block;padding:0}aside{display:none}main{border:0;box-shadow:none;padding:0}h1{font-size:22pt}h2{font-size:16pt;break-after:avoid}h3{break-after:avoid}pre{white-space:pre-wrap}pre code{white-space:pre-wrap;overflow-wrap:anywhere}.code-block,tr{break-inside:avoid}a{color:inherit}table{font-size:9pt}}
+</style></head><body><div class="layout"><aside><div class="brand">人脸考勤项目</div><div class="toc-title">新电脑启动指南</div><nav class="toc" aria-label="文档目录"><a href="#section-1">先选择数据库</a><a href="#section-2">1 准备项目文件</a><a href="#section-3">2 安装 Java 21</a><a href="#section-4">3 安装 Node.js 和 pnpm</a><a href="#section-5">4 在项目根目录打开 PowerShell</a><a href="#section-6">5 生成新电脑自己的配置和初始密码</a><a href="#section-7">6 安装前端依赖</a><a href="#section-8">7 启动前后端并打开网页</a><a href="#section-9">8 登录和第一次体验</a><a href="#section-10">9 常见问题和处理顺序</a><a href="#section-11">10 停止服务和下次再打开</a><a href="#section-12">附录 A 只有源码或修改代码后如何构建</a><a href="#section-13">附录 B 如何进一步启用真实刷脸</a><a href="#section-14">附录 C 安装和启动独立 MySQL 数据库</a><a href="#section-15">完成检查</a></nav><button class="print-button" onclick="window.print()">打印或另存为 PDF</button><p class="footnote">Windows 10/11 · 先运行前后端<br>文档可离线阅读，首次安装需要联网。</p></aside><main><h1>在新电脑上启动人脸考勤项目</h1>
+<p>适用：Windows 10/11 的 64 位电脑，第一次接触前后端项目的用户。更新日期：2026-10-24。</p>
+<p>本次依赖按<a href="目标电脑环境与计划原文.md">目标电脑环境清单</a>固定；完整安装和模型步骤见<a href="目标环境构建说明.md">目标环境构建说明</a>。请使用本次 <code>face-attendance-target.zip</code>，不要混用此前的 <code>face-attendance-preview.zip</code> 与新启动命令。</p>
+<p>模型环境完成后，继续阅读<a href="真人刷脸操作步骤.md">真人刷脸操作步骤</a>；本次实际验证范围见<a href="本次环境对齐与模型验证.md">环境对齐与模型验证</a>。</p>
+<p>照着第 1—8 步操作，可以在新电脑打开登录页，体验人员管理、审批、考勤查询和报表。推荐使用随文档提供的 <strong><code>face-attendance-target.zip</code></strong>：里面已放入编译好的后端程序，默认体验路线不用安装 Maven、Python、MySQL 或 Nginx。要使用项目计划中的独立 MySQL 数据库，请按下方的数据库路线选择操作。</p>
+<p><strong>这条路线运行真实的前后端业务服务，使用本地 H2 数据库保存数据；没有加载人脸模型，因此暂时不能录入人脸或完成刷脸打卡。</strong> 完整刷脸环境的入口在附录 B。</p>
+<p>本指南有两个版本：<code>新电脑启动指南.html</code> 可以双击后用浏览器阅读；<code>.md</code> 是便于维护的文本版。两份内容相同。阅读 HTML 文档不需要先启动项目。</p>
+<h2 id="section-1">先选择数据库</h2>
+<p><strong>项目有数据库。默认体验使用的 H2 内嵌在 Java 后端中：启动后端时自动启动数据库，停止后端时自动关闭；数据保存在 <code>backend\data\attendance.mv.db</code>，重启后仍然存在。</strong> 所以 H2 路线没有单独的“安装和启动数据库”命令。</p>
+<p>原计划的正式数据库是 <strong>MySQL 8.4</strong>，它是单独安装、单独运行的 Windows 服务，必须先启动 MySQL，再启动后端和前端。两种路线如下：</p>
+<div class="table-wrap"><table><thead><tr><th>你想做什么</th><th>操作顺序</th><th>启动命令</th></tr></thead><tbody><tr><td>先快速看页面，用 H2 保存数据</td><td>完成第 1—8 步</td><td><code>scripts\start.ps1 -Dev -BusinessOnly -TargetEnvironment</code></td></tr><tr><td>安装独立 MySQL，实际连接数据库</td><td>完成第 1—6 步 → 附录 C → 第 8 步登录</td><td><code>scripts\start.ps1 -Dev -BusinessOnly -MySql -TargetEnvironment</code></td></tr></tbody></table></div>
+<p><strong>只修改 <code>.env</code> 中的 <code>DB_URL</code> 不会把默认开发模式切到 MySQL，必须加 <code>-MySql</code>。</strong> 这个选项已包含在更新后的转移包中。MySQL 和 H2 各自保存一套数据，切换不会自动迁移账号、密码或考勤记录。</p>
+<h2 id="section-2">1 准备项目文件</h2>
+<h3>推荐使用转移压缩包</h3>
+<ol start="1"><li>在原电脑取得 <code>delivery/face-attendance-target.zip</code>，通过 U 盘或文件传输复制到新电脑。</li><li>右键压缩包，选择“全部提取”。不要直接在压缩包窗口中运行文件。</li><li>将解压得到的整个 <code>face-attendance</code> 文件夹放到一个自己有写入权限的位置，例如 <code>C:\face-attendance</code>。不用与原电脑的盘符一致，也不需要安装 Codex 或 IntelliJ IDEA。</li><li>打开这个文件夹，确认里面直接有 <code>Readme.md</code>、<code>backend</code>、<code>frontend</code>、<code>scripts</code> 和 <code>.env.example</code>。如果外面又套了一层同名文件夹，继续进入内层。</li><li>确认能找到 <code>backend\target\face-attendance-1.0.0.jar</code>。这是已编译的后端程序。找不到时，先看附录 A，不要直接执行启动步骤。</li></ol>
+<p>转移包包含源码、启动脚本、说明文档和后端 JAR；不包含原电脑的账号密码、旧数据库、日志、前端依赖或 Python 虚拟环境。首次安装前端依赖仍然需要联网。</p>
+<h3>如果拿到的是直接复制的旧项目</h3>
+<p>建议向提供者索取上述干净转移包。直接复制的 <code>.env</code> 可能含原电脑的工具路径和密码；<code>backend\data</code> 会保留原账号和旧密码；<code>.runtime</code> 会留下原进程记录，容易导致新电脑无法启动。</p>
+<p><strong>体验一个全新的系统，与迁移原有业务数据是两件事。</strong> 有需要保留的旧数据时，先按 <a href="deployment.md">部署与备份说明</a> 制定迁移方案。不要为了解决登录问题删除数据库，也不要给已有加密模板随意更换密钥。</p>
+<h2 id="section-3">2 安装 Java 21</h2>
+<p>Java 用来运行后端，也就是保存数据、检查账号和处理业务的程序。</p>
+<ol start="1"><li>打开 <a href="https://adoptium.net/temurin/releases/?version=21&amp;os=windows&amp;arch=x64&amp;package=jdk">Eclipse Temurin 下载页</a>。选择 <strong>版本 21、Windows、x64、JDK</strong>，下载安装包 <code>.msi</code>。</li><li>双击安装包，按提示继续。到“Custom Setup／自定义安装”时，启用 <strong>Add to PATH</strong> 和 <strong>Set JAVA_HOME／更新 JAVA_HOME</strong> 两项。</li><li>完成安装。若电脑原来已经有 Java 8 或 Java 17，仍需确保本项目实际使用 Java 21。</li></ol>
+<p>上述选项来自 <a href="https://adoptium.net/installation/windows/">Temurin 官方 Windows 安装说明</a>。补丁版本可以更新，主版本按本项目已验证的 21 使用。</p>
+<h2 id="section-4">3 安装 Node.js 和 pnpm</h2>
+<p>Node.js 负责运行前端开发服务；pnpm 负责把前端需要的依赖下载到项目中。</p>
+<ol start="1"><li>打开 <a href="https://nodejs.org/en/download">Node.js 官方下载页</a>。选择文档指定的 <strong>24.18.0</strong>，操作系统选 Windows，架构选 x64，下载该版本的 <strong>Windows Installer <code>.msi</code></strong>。也可使用<a href="https://nodejs.org/dist/v24.18.0/">官方版本归档</a>；不要选择其他补丁版本。</li><li>安装时保留 npm 和 Add to PATH。若出现额外安装原生模块编译工具的选项，本指南的业务体验路线不需要勾选。</li><li>安装完后，关闭之前打开的终端窗口。点击开始菜单，搜索并打开 <strong>Windows PowerShell</strong>，使用普通窗口即可。</li><li>依次复制下面的命令，每次粘贴一行后按回车。只复制代码框中的命令，不要复制 <code>PS C:\...&gt;</code> 这样的终端提示符。</li></ol>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>java -version</code></pre></div>
+<p>应看到 <code>21</code> 开头的 Java 版本。</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>javac -version</code></pre></div>
+<p>应看到 <code>javac 21...</code>。</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>$env:JAVA_HOME</code></pre></div>
+<p>应显示实际 JDK 21 的文件夹路径，例如 <code>C:\Program Files\Eclipse Adoptium\jdk-21...</code>，末尾不应是 <code>bin</code>。如果为空或指向旧版本，先按第 9 节修正，再继续。</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>node --version</code></pre></div>
+<p>必须看到 <code>v24.18.0</code>。</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>npm.cmd --version</code></pre></div>
+<p>能显示版本号后，安装 pnpm 11.25.0：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>npm.cmd install --global pnpm@11.25.0</code></pre></div>
+<p>等待下载结束，再检查：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>pnpm.cmd --version</code></pre></div>
+<p>必须看到 <code>11.25.0</code>。本文使用 <code>.cmd</code> 后缀，避免 PowerShell 对同名 <code>.ps1</code> 文件的执行策略影响。安装方式参照 <a href="https://pnpm.io/installation">pnpm 官方说明</a>。</p>
+<p><strong>如果出现红色错误，先处理错误，再执行下一步。</strong> 下载慢时等待当前命令结束，不要同时打开多个安装窗口。</p>
+<h2 id="section-5">4 在项目根目录打开 PowerShell</h2>
+<ol start="1"><li>用资源管理器打开解压后的 <code>face-attendance</code> 文件夹，也就是直接看得到 <code>Readme.md</code> 和 <code>scripts</code> 的那一层。</li><li>点击资源管理器上方的地址栏，输入 <code>powershell</code>，按回车。这会在当前文件夹打开 PowerShell。</li><li>输入下面两行，确认操作位置正确：</li></ol>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Get-Location</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Test-Path .\scripts\start.ps1</code></pre></div>
+<p>第二条应输出 <code>True</code>。如果是 <code>False</code>，说明打开的文件夹层级不对。</p>
+<ol start="4"><li>为本次打开的窗口允许执行已确认来源的项目脚本：</li></ol>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass</code></pre></div>
+<p>若出现确认提示，输入 <code>Y</code> 后回车。这个设置只作用于当前 PowerShell 进程，关闭窗口后失效，不修改电脑的永久策略。若单位电脑有强制策略阻止执行，交给电脑管理员处理。<a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies">PowerShell 官方说明</a></p>
+<p>接下来的初始化、安装、启动和停止步骤，都在这个项目根目录中执行。</p>
+<h2 id="section-6">5 生成新电脑自己的配置和初始密码</h2>
+<p>只在这个干净项目第一次使用时执行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\init-env.ps1</code></pre></div>
+<p>成功时会出现 <code>Created .env ...</code>。项目根目录会新建一个 <code>.env</code> 文件，里面有独立生成的初始密码和服务密钥。</p>
+<p>然后用记事本打开：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>notepad.exe .env</code></pre></div>
+<p>找到这两项：</p>
+<div class="code-block"><div class="code-label">配置示例或预期结果</div><pre><code>BOOTSTRAP_ADMIN_USERNAME=admin
+BOOTSTRAP_ADMIN_PASSWORD=这里会是本机生成的随机密码</code></pre></div>
+<p>上面只是说明格式，<strong>不要把“这里会是本机生成的随机密码”填回文件</strong>。用户名通常是 <code>admin</code>；登录密码是你自己文件中 <code>BOOTSTRAP_ADMIN_PASSWORD=</code> 后面的全部内容。</p>
+<p>复制密码时，只复制第一个等号后面的值。不要复制字段名、换行或额外空格；密码中如果还有 <code>+</code>、<code>/</code>、<code>=</code> 等符号，也要完整保留。可以先保存到个人密码管理器，不要把整份 <code>.env</code> 发到群里。</p>
+<p>默认 H2 路线<strong>此时不需要修改</strong> <code>DB_PASSWORD=CHANGE_ME</code>、<code>NGINX_EXE</code>、<code>PYTHON_EXE</code> 或其他模型配置。选择 MySQL 路线时，完成前端依赖安装后按附录 C 填写真实的数据库连接和密码；需要真实刷脸或 Nginx 时再看附录 B。</p>
+<p>如果提示 <code>.env already exists</code>，表示已经初始化过，脚本正在保护已有密钥。直接查看现有 <code>.env</code> 并继续；若它来自旧电脑，则回到第 1 节，使用新的干净解压目录。</p>
+<h2 id="section-7">6 安装前端依赖</h2>
+<p>在项目根目录执行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Push-Location .\frontend</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>pnpm.cmd install --frozen-lockfile</code></pre></div>
+<p>第一次会联网下载。看到安装完成并且命令行重新出现提示符后，再运行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Pop-Location</code></pre></div>
+<p>成功标准是下面两条都返回 <code>True</code>：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Test-Path .\frontend\node_modules\vite\bin\vite.js</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Test-Path .\backend\target\face-attendance-1.0.0.jar</code></pre></div>
+<p>前端依赖装好后，同一台电脑的正常启停不需要重复安装。不要用原电脑复制来的 <code>node_modules</code> 替代这一步。只有 <code>frontend\dist</code> 也不够，因为这里的开发启动脚本使用本地 Vite。</p>
+<h2 id="section-8">7 启动前后端并打开网页</h2>
+<p>在项目根目录运行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\start.ps1 -Dev -BusinessOnly -TargetEnvironment</code></pre></div>
+<p>参数含义：<code>-Dev</code> 使用本地开发配置，默认随 Java 启动 H2 数据库；<code>-BusinessOnly</code> 先启动业务前后端，不启动人脸算法。首次启动需要一些时间，等待程序返回，不要连续重复点击或运行。<strong>选择 MySQL 的用户，用附录 C 的命令代替本节启动命令。</strong></p>
+<p>成功时会看到类似文字，PID 数字每次可能不同：</p>
+<div class="code-block"><div class="code-label">配置示例或预期结果</div><pre><code>backend started (PID ...).
+frontend started (PID ...).
+Development URL: http://localhost:5173 (local computer only).</code></pre></div>
+<p>随后出现算法未启动的 <code>Business-only mode</code> 提示属于预期结果，不代表前后端启动失败。</p>
+<p>继续执行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Start-Process &#x27;http://localhost:5173&#x27;</code></pre></div>
+<p>或者自行打开 Edge/Chrome，在地址栏输入 <a href="http://localhost:5173">http://localhost:5173</a>。应看到人脸考勤系统的登录页。</p>
+<p>如果要检查连接，执行下面一行，应输出 <code>200</code>：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>(Invoke-WebRequest -Uri &#x27;http://localhost:5173/api/v1/health&#x27; -UseBasicParsing -TimeoutSec 15).StatusCode</code></pre></div>
+<div class="table-wrap"><table><thead><tr><th>程序</th><th>地址或位置</th><th>你需要做什么</th></tr></thead><tbody><tr><td>前端网页</td><td><code>http://localhost:5173</code></td><td>用浏览器打开这个地址</td></tr><tr><td>Java 后端</td><td><code>127.0.0.1:8080</code></td><td>脚本启动，前端自动转发请求</td></tr><tr><td>本地业务数据库</td><td><code>backend\data\attendance.mv.db</code></td><td>自动创建和保存，不用安装数据库软件</td></tr><tr><td>算法服务</td><td>本路线不启动</td><td>先体验普通业务</td></tr></tbody></table></div>
+<p>请始终使用上面的 <code>localhost:5173</code> 地址。不要双击项目的 <code>index.html</code> 来运行系统，也不要把 <code>8080</code> 当成网页入口。这里仅允许本机访问，另一台电脑或手机不能通过自己的 <code>localhost</code> 访问它。</p>
+<h2 id="section-9">8 登录和第一次体验</h2>
+<ol start="1"><li>输入用户名 <code>admin</code> 和第 5 步获取的完整初始密码。</li><li>首次登录会要求修改密码。新密码至少 <strong>12 个字符</strong>，包含字母和数字，UTF-8 编码最多 72 字节，且不能与旧密码相同。使用纯英文字母、数字和常见英文符号时，长度为 12—72 个字符；请注意大小写并安全保存。</li><li>修改完成后保存新密码。<strong>以后使用新密码登录，<code>.env</code> 中的初始密码不会自动跟着改变。</strong></li><li>进入管理页面，先查看仪表盘，再到人员管理新建一个虚构测试员工，体验规则、审批、考勤查询和报表。</li></ol>
+<p>全新数据库没有员工考勤记录，仪表盘为空或数量为零是正常的。初始 <code>admin</code> 是独立管理账号，没有关联员工档案；要体验员工申请流程，需要先创建员工，并使用那个员工的账号登录。</p>
+<p>不要把“账号或密码错误，或账号已停用”当成程序没有启动。这条消息表示服务器已经处理登录请求，只是没有接受这组凭据。具体排查顺序见下一节。</p>
+<h2 id="section-10">9 常见问题和处理顺序</h2>
+<h3>提示账号或密码错误或账号已停用</h3>
+<ol start="1"><li>确认打开的是这台电脑的 <code>http://localhost:5173</code>，用户名为当前项目配置的 <code>admin</code>。</li><li>如果从未改过密码，重新打开<strong>当前项目根目录</strong>的 <code>.env</code>，复制 <code>BOOTSTRAP_ADMIN_PASSWORD=</code> 后的完整内容。特别检查大小写、末尾符号和是否带入换行。</li><li>如果已经完成首次改密，就使用自己设置的新密码；不要继续使用 <code>.env</code> 里的初始密码。</li><li>如果复制过旧电脑的 <code>backend\data</code>，里面保留的是旧账号和旧密码。程序仅在账号表为空时创建初始管理员，<strong>修改 <code>.env</code> 后重启不会重置已有密码</strong>。</li><li>员工账号还需要确认员工未被停用。若连续尝试过多出现限流提示，等待 5 分钟后再试。</li><li>若忘记新密码且没有其他可用管理员，联系项目维护者进行保留数据的密码恢复。当前没有“忘记密码”入口；不要删除数据库来尝试修复。</li></ol>
+<p>页面上的“请求编号”用于定位日志，不是账号或密码。向维护者提供报错截图、发生时间、请求编号即可，不要提供 <code>.env</code> 全文。</p>
+<h3>PowerShell 提示找不到命令或文件</h3>
+<div class="table-wrap"><table><thead><tr><th>现象</th><th>处理办法</th></tr></thead><tbody><tr><td><code>java</code>、<code>javac</code> 或 <code>node</code> 不是可识别命令</td><td>确认安装完成，关闭并重新打开 PowerShell；按第 2、3 步检查版本</td></tr><tr><td>Java 版本不是 21，或 <code>UnsupportedClassVersionError</code></td><td>将 <code>JAVA_HOME</code> 改为实际的 JDK 21 目录，并检查 PATH 中使用的 Java；重新开窗口后检查</td></tr><tr><td><code>pnpm.cmd</code> 找不到</td><td>重新检查 <code>npm.cmd install --global pnpm@11.25.0</code> 是否成功，重新打开终端；仍失败时用 <code>npm.cmd config get prefix</code> 找到安装目录，将其加入当前用户 PATH</td></tr><tr><td>“禁止运行脚本”或 <code>PSSecurityException</code></td><td>在当前窗口重新执行第 4 步的 <code>Set-ExecutionPolicy</code> 命令；命令中使用 <code>npm.cmd</code> 和 <code>pnpm.cmd</code></td></tr><tr><td>找不到 <code>scripts\start.ps1</code></td><td>当前目录不是项目根目录，回到第 4 步</td></tr><tr><td><code>Build the backend before starting</code></td><td>JAR 缺失，重新取得转移包或按附录 A 构建</td></tr><tr><td><code>Run pnpm install in frontend first</code></td><td>按第 6 步安装前端依赖</td></tr><tr><td><code>Executable not found</code>，路径指向原电脑用户名或 IntelliJ</td><td>复制了旧 <code>.env</code>；使用干净转移包重新初始化，或将工具路径改成新电脑的实际位置</td></tr></tbody></table></div>
+<p>设置 <code>JAVA_HOME</code> 的图形操作：开始菜单搜索“编辑账户的环境变量”，打开后在当前用户变量中新建或修改 <code>JAVA_HOME</code>，值填实际 JDK 21 安装文件夹的完整路径，不包含 <code>bin</code>，不加引号。编辑用户 <code>Path</code>，增加 <code>%JAVA_HOME%\bin</code>。关闭窗口并重新打开 PowerShell，再检查 <code>java -version</code> 和 <code>$env:JAVA_HOME</code>。如果电脑装有多个 Java 且仍不一致，可以在<strong>当前项目的 <code>.env</code></strong> 额外写入 <code>JAVA_HOME=实际的JDK21目录</code>，让启动脚本直接使用它。</p>
+<h3>端口被占用或已有进程记录</h3>
+<p>如果提示 <code>Port 8080/5173 is occupied</code> 或 <code>A process record already exists</code>，先检查之前是否已经启动本项目。已经启动且网页可用时，不需要再启动一次。</p>
+<p>需要重新启动本项目时，在同一项目根目录先执行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\stop.ps1</code></pre></div>
+<p>确认停止成功，再执行第 7 步。脚本只会停止它能够核对归属的本项目进程；如果其他软件占用了端口，它不会替你关闭那个软件。此时先通过任务管理器或维护者查清占用来源，避免结束陌生进程。</p>
+<h3>网页打不开或显示网络错误</h3>
+<ol start="1"><li>检查启动命令是否真正完成。若中途报错，前端可能尚未启动。</li><li>确认地址是 <code>http://localhost:5173</code>，没有写成 <code>https</code>，也没有遗漏端口。</li><li>查看下面的日志。即使日志显示出错，也先保留文件供维护者排查。</li></ol>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Get-Content .\.runtime\backend.stdout.log -Tail 60</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Get-Content .\.runtime\backend.stderr.log -Tail 60</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Get-Content .\.runtime\frontend.stderr.log -Tail 60</code></pre></div>
+<ol start="4"><li>若启动只成功了一半，执行 <code>stop.ps1</code> 清理已启动的本项目服务，处理日志中的原因后再启动。</li></ol>
+<p>登录界面报 <code>403</code> 或安全令牌相关错误时，先刷新页面再试；仍有问题时关闭该网站标签页，重新打开相同的 <code>localhost:5173</code> 地址。HTTP 演示应保留 <code>-Dev</code> 参数，避免误用正式部署的安全 Cookie 设置。</p>
+<h3>依赖下载失败</h3>
+<p>前端安装出现网络超时或连接失败时，先确认浏览器可以联网，再重新执行第 6 步。证书或代理错误应交给网络管理员排查，不要通过关闭证书校验来继续。若提示锁文件与源码不一致，取得同一版本的完整项目，不要先删除 <code>pnpm-lock.yaml</code>。</p>
+<p>业务体验路线不必运行 <code>check-env.ps1 -Dev</code>：这个检查还要求 Maven、Python 和模型，它们未安装时会显示失败，但不影响这里的前后端体验。源码构建遇到 Maven 下载问题时见附录 A。</p>
+<h3>数据看起来丢失或换了账号</h3>
+<p>通过本项目的 <code>start.ps1</code> 启动时，Java 的工作目录固定为 <code>backend</code>，因此使用的是 <code>backend\data</code> 中的数据。手动从其他目录执行 <code>java -jar</code> 可能生成另一份数据库。请统一使用本指南脚本，不要混用启动方式。</p>
+<h2 id="section-11">10 停止服务和下次再打开</h2>
+<p>关闭浏览器只会关闭页面，关闭 PowerShell 窗口也不等于停止后台服务。</p>
+<p>需要停止时，在项目根目录打开 PowerShell，执行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\stop.ps1</code></pre></div>
+<p>下次使用时，先在项目根目录打开 PowerShell，再依次执行。先调用停止脚本，是为了清理上次关机或异常退出留下的进程记录；如果项目仍在运行，它也会先停止本项目服务：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\stop.ps1</code></pre></div>
+<p>确认停止脚本执行成功后再启动。如果提示进程身份或 PID 与记录不一致，保留提示并联系维护者核对，不要直接结束陌生进程。</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\start.ps1 -Dev -BusinessOnly -TargetEnvironment</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Start-Process &#x27;http://localhost:5173&#x27;</code></pre></div>
+<p>不需要重新生成 <code>.env</code>，不需要重新安装依赖，也不需要重新创建管理员。数据库里的测试数据会保留；电脑重启后需重新启动服务。<strong>上述是 H2 的日常启停；MySQL 用户按附录 C 的“下次启动和停止”操作，并保留 <code>-MySql</code> 参数。</strong></p>
+<h2 id="section-12">附录 A 只有源码或修改代码后如何构建</h2>
+<p><strong>如果转移包中的 JAR 已存在且只是体验界面，可以跳过本附录。</strong> 修改 Java 源码后要重新构建 JAR；只修改源码不会改变已经运行的后端。</p>
+<ol start="1"><li>完成前面的 Java、Node、pnpm 安装和 <code>.env</code> 初始化。</li><li>到 <a href="https://maven.apache.org/download.cgi">Apache Maven 官方下载页</a> 取得 Maven 3.9 系列的 <strong>Binary zip archive</strong>。项目已用 3.9.16 验证，不要选 <code>Source</code> 源码包或 Maven 4 预览版。</li><li>解压到固定位置。例：<code>C:\Tools\apache-maven-3.9.16</code>，其中应有 <code>bin\mvn.cmd</code>。</li><li>用记事本打开项目 <code>.env</code>，将 <code>MAVEN_EXE=mvn.cmd</code> 改成实际完整路径，例如：</li></ol>
+<div class="code-block"><div class="code-label">配置示例或预期结果</div><pre><code>MAVEN_EXE=C:\Tools\apache-maven-3.9.16\bin\mvn.cmd</code></pre></div>
+<p>如果实际安装版本或位置不同，请使用自己的路径。Maven 的安装方式是解压二进制包并配置可执行文件位置，详情见 <a href="https://maven.apache.org/install.html">官方安装说明</a>。</p>
+<ol start="5"><li>如果本项目已经启动，先执行 <code>scripts\stop.ps1</code>。在项目根目录构建：</li></ol>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\build.ps1 -TargetEnvironment</code></pre></div>
+<p>脚本会执行后端测试和打包、前端依赖安装、前端测试和构建。第一次下载依赖需要联网。成功时末尾出现 <code>Build complete</code>，并生成 <code>backend\target\face-attendance-1.0.0.jar</code> 及 <code>frontend\dist</code>。</p>
+<p>若 Maven 官方源返回 403 或无法下载，可以使用项目附带的 HTTPS 阿里镜像配置再试：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\build.ps1 -TargetEnvironment -MavenSettings .\backend\maven-settings-aliyun.xml</code></pre></div>
+<p>这个备用配置只适用于 Maven 下载问题；测试失败、Java 版本不对或前端安装失败，需要根据对应错误处理。构建成功后，回到第 7 步启动。</p>
+<h2 id="section-13">附录 B 如何进一步启用真实刷脸</h2>
+<p>业务页面跑通后，真实刷脸还需要以下准备。不要把缺模型或未校准状态下的打卡失败当成登录配置问题。</p>
+<div class="table-wrap"><table><thead><tr><th>准备工作</th><th>从哪里继续</th></tr></thead><tbody><tr><td>安装 Python 3.11，并在新电脑创建独立虚拟环境</td><td><a href="../algorithm/Readme.md">算法服务说明</a></td></tr><tr><td>安装完整算法依赖，准备 InsightFace 和 MediaPipe 模型，检查许可与哈希清单</td><td><a href="../algorithm/Readme.md">算法服务说明</a></td></tr><tr><td>配置 <code>PYTHON_EXE</code> 和模型目录，再启动完整开发服务</td><td><a href="../Readme.md">项目 Readme 第 4 节</a></td></tr><tr><td>现场采集、授权设备、同步人员库、使用独立样本校准并确认阈值</td><td><a href="acceptance.md">验收清单</a></td></tr><tr><td>独立 MySQL 数据库的安装、启动和连接</td><td>本文附录 C</td></tr><tr><td>手机或局域网设备访问、可信 HTTPS、Nginx</td><td><a href="deployment.md">部署说明</a></td></tr></tbody></table></div>
+<p>先停止业务体验服务，完成上述本机算法准备后，完整开发启动命令才是：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\start.ps1 -Dev -TargetEnvironment</code></pre></div>
+<p>这条命令默认仍使用 H2。如果已经按附录 C 配置 MySQL，且算法依赖也准备好了，完整开发服务使用 <code>scripts\start.ps1 -Dev -MySql -TargetEnvironment</code>。正式 MySQL/HTTPS 部署是另一套配置，请按部署说明操作；不要直接删除 <code>-Dev</code> 来试。当前文档未在另一台真实电脑上执行验证，外部模型、手机和数据库部署仍需按验收清单实际检查。</p>
+<h2 id="section-14">附录 C 安装和启动独立 MySQL 数据库</h2>
+<p>本附录把数据库单独运行起来，再让前后端连接它。前提是已完成第 1—6 步，拥有 Java、Node、前端依赖、后端 JAR 和本机 <code>.env</code>。这条路线暂不启动人脸算法，也不要求先配置 Nginx。</p>
+<h3>C1 下载并安装 MySQL Server</h3>
+<ol start="1"><li>打开 <a href="https://dev.mysql.com/downloads/mysql/8.4.html">MySQL Community Server 8.4 官方下载页</a>，选择 Windows 的 <strong>64 位 MSI Installer</strong>。下载的是 MySQL Server，不是只提供可视化管理界面的 Workbench。</li><li>运行 <code>.msi</code> 完成安装，并继续打开随安装包提供的 <strong>MySQL Configurator</strong> 完成数据库配置。若安装器提示缺少运行库，先按安装器指引安装对应组件，再继续。</li><li>记下安装目录。下文示例使用 <code>C:\Program Files\MySQL\MySQL Server 8.4</code>；如果安装到了其他位置，命令中的路径也要跟着改。</li></ol>
+<p>MySQL 8.4 的安装包与配置工具说明见 <a href="https://dev.mysql.com/doc/refman/8.4/en/windows-installation.html">官方 Windows 安装文档</a>。如果电脑已有承载其他项目的 MySQL，不要覆盖升级或卸载它；先让维护者确认能否复用。</p>
+<h3>C2 在配置向导中设置服务</h3>
+<p>按以下选项完成 MySQL Configurator；不同补丁版本的文字可能略有不同：</p>
+<div class="table-wrap"><table><thead><tr><th>配置页面</th><th>建议填写</th></tr></thead><tbody><tr><td>Type and Networking</td><td>Development／开发电脑；保持 TCP/IP 启用；端口 <code>3306</code></td></tr><tr><td>Open Windows Firewall port for network access</td><td>取消勾选。本项目由同一台电脑的 Java 访问数据库，不需要让局域网直接连接 3306</td></tr><tr><td>Accounts and Roles</td><td>设置并保存自己的 MySQL <code>root</code> 管理员密码；稍后另建项目专用账号</td></tr><tr><td>Windows Service</td><td>勾选作为 Windows 服务运行，服务名称填写 <code>MySQL84</code>；勾选开机自动启动</td></tr><tr><td>Apply Configuration</td><td>点击 Execute／执行，等待全部配置步骤成功，再 Finish／完成</td></tr></tbody></table></div>
+<p>这里的 <code>root</code> 密码管理数据库，与网页上的 <code>admin</code> 密码不同。<a href="https://dev.mysql.com/doc/refman/8.4/en/mysql-configurator-workflow-server.html">配置选项说明</a></p>
+<h3>C3 启动数据库并检查状态</h3>
+<p>图形方式：按 <code>Win + R</code>，输入 <code>services.msc</code>，按回车。在服务列表找到 <code>MySQL84</code>，状态应为“正在运行”；如果尚未运行，右键选择“启动”。以后它通常会随 Windows 自动启动。</p>
+<p>也可以在开始菜单搜索 PowerShell，<strong>右键以管理员身份运行</strong>，依次执行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Get-Service -Name MySQL84</code></pre></div>
+<p>若 <code>Status</code> 是 <code>Stopped</code>，运行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Start-Service -Name MySQL84</code></pre></div>
+<p>再执行第一条，看到 <code>Running</code> 表示数据库服务已启动。如果安装时填写了其他服务名称，将命令中的 <code>MySQL84</code> 换成实际名称；不是去新建一个同名服务。<a href="https://dev.mysql.com/doc/refman/8.4/en/windows-start-service.html">MySQL Windows 服务说明</a></p>
+<p>关闭这个管理员窗口。接下来编辑项目配置和启动前后端，继续使用第 4 步的<strong>普通 PowerShell</strong>，保持同一个 Windows 用户。可以先检查数据库端口：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Test-NetConnection -ComputerName 127.0.0.1 -Port 3306</code></pre></div>
+<p>看到 <code>TcpTestSucceeded : True</code> 表示端口能连接；这还不能证明数据库账号密码正确，继续执行下一步。</p>
+<h3>C4 登录数据库并创建项目专用库和账号</h3>
+<p>先在普通 PowerShell 执行下面命令，<code>-p</code> 后不要填写密码：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>&amp; &#x27;C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe&#x27; --host=127.0.0.1 --port=3306 --user=root -p</code></pre></div>
+<p>看到 <code>Enter password:</code> 后输入 C2 设置的 <strong>MySQL root 密码</strong>并回车。输入时不显示字符是正常的。成功后提示符从 <code>PS ...&gt;</code> 变成 <code>mysql&gt;</code>。</p>
+<p><strong>下面是 SQL，只粘贴到 <code>mysql&gt;</code> 中，不要直接粘贴到 PowerShell。</strong> 先自己准备一份项目数据库密码，建议使用密码管理器生成至少 16 位的字母、数字和英文符号组合；为便于直接填入这个 SQL 示例，避开单引号、反斜杠和空白。将两处 <code>REPLACE_WITH_YOUR_DATABASE_PASSWORD</code> 都替换成同一个实际密码，再逐条执行：</p>
+<div class="code-block"><div class="code-label">SQL 命令 · 只在 mysql> 中执行</div><pre><code>CREATE DATABASE IF NOT EXISTS face_attendance CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER IF NOT EXISTS &#x27;face_attendance&#x27;@&#x27;127.0.0.1&#x27; IDENTIFIED BY &#x27;REPLACE_WITH_YOUR_DATABASE_PASSWORD&#x27;;
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES, DROP ON face_attendance.* TO &#x27;face_attendance&#x27;@&#x27;127.0.0.1&#x27;;
+CREATE USER IF NOT EXISTS &#x27;face_attendance&#x27;@&#x27;localhost&#x27; IDENTIFIED BY &#x27;REPLACE_WITH_YOUR_DATABASE_PASSWORD&#x27;;
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES, DROP ON face_attendance.* TO &#x27;face_attendance&#x27;@&#x27;localhost&#x27;;</code></pre></div>
+<p>两种来源主机写法都限制在本机，用于兼容本地名称解析；没有给项目账号整个 MySQL 服务器的管理权限。出现 <code>Query OK</code> 表示语句成功。若账号已存在，<code>IF NOT EXISTS</code> 不会重置其密码，应使用那个账号原本的密码，或请维护者确认处理，不要继续猜测。</p>
+<p>检查数据库已创建：</p>
+<div class="code-block"><div class="code-label">SQL 命令 · 只在 mysql> 中执行</div><pre><code>SHOW DATABASES LIKE &#x27;face_attendance&#x27;;</code></pre></div>
+<p>看到 <code>face_attendance</code> 后，退出数据库命令行，回到 PowerShell：</p>
+<div class="code-block"><div class="code-label">SQL 命令 · 只在 mysql> 中执行</div><pre><code>exit;</code></pre></div>
+<p>然后用项目专用账号检查实际登录：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>&amp; &#x27;C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe&#x27; --host=127.0.0.1 --port=3306 --user=face_attendance -p face_attendance</code></pre></div>
+<p>这次输入刚刚创建的<strong>项目数据库密码</strong>。进入 <code>mysql&gt;</code> 后执行：</p>
+<div class="code-block"><div class="code-label">SQL 命令 · 只在 mysql> 中执行</div><pre><code>SELECT DATABASE(), CURRENT_USER(), VERSION();</code></pre></div>
+<p>结果应包含数据库 <code>face_attendance</code>、项目账号和 <code>8.4...</code> 版本。再输入 <code>exit;</code> 返回 PowerShell。<a href="https://dev.mysql.com/doc/refman/8.4/en/connection-options.html">MySQL 连接参数说明</a></p>
+<h3>C5 把数据库连接写进项目配置</h3>
+<p>在项目根目录的普通 PowerShell 打开 <code>.env</code>：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>notepad.exe .env</code></pre></div>
+<p>找到对应项目并修改，不要重复追加同名项。示例中的密码占位文字必须换成 C4 已验证能登录的实际密码：</p>
+<div class="code-block"><div class="code-label">配置示例或预期结果</div><pre><code>DB_URL=jdbc:mysql://127.0.0.1:3306/face_attendance?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=Asia/Shanghai
+DB_USERNAME=face_attendance
+DB_PASSWORD=REPLACE_WITH_YOUR_DATABASE_PASSWORD
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=face_attendance</code></pre></div>
+<p>保存并关闭记事本。<code>DB_URL</code> 必须保持为完整的一行；如果安装时使用的不是 3306，地址中的端口与 <code>DB_PORT</code> 要一起更改。</p>
+<p>不要修改 <code>FACE_ENCRYPTION_KEY</code> 和 <code>INTERNAL_API_KEY</code>，也不要新增 <code>SPRING_DATASOURCE_*</code> 项。启动脚本会在加 <code>-MySql</code> 时处理数据库覆盖。</p>
+<p>三类账号不要混淆：</p>
+<div class="table-wrap"><table><thead><tr><th>账号</th><th>用在哪里</th><th>密码来源</th></tr></thead><tbody><tr><td>MySQL 的 <code>root</code></td><td>安装配置、建库和授权</td><td>C2 自己设置的 MySQL 管理员密码</td></tr><tr><td>MySQL 的 <code>face_attendance</code></td><td>Java 后端连接数据库</td><td>C4 创建账号时设置，与 <code>.env</code> 的 <code>DB_PASSWORD</code> 一致</td></tr><tr><td>网页的 <code>admin</code></td><td>浏览器登录考勤系统</td><td>空数据库首次启动时使用 <code>.env</code> 的 <code>BOOTSTRAP_ADMIN_PASSWORD</code>；改密后用新密码</td></tr></tbody></table></div>
+<h3>C6 启动连接 MySQL 的后端和前端</h3>
+<p>确认 MySQL 服务仍处于 <code>Running</code>。若是新打开的普通 PowerShell 窗口，先执行第 4 步的当前窗口脚本策略设置。如果此前启动过 H2 模式，先在项目根目录停止本项目前后端，两个模式不能同时占用 8080 和 5173：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\stop.ps1</code></pre></div>
+<p>确认停止脚本成功后，运行带 <strong><code>-MySql</code></strong> 的命令：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>.\scripts\start.ps1 -Dev -BusinessOnly -MySql -TargetEnvironment</code></pre></div>
+<p>应该先看到 <code>Development database: MySQL</code>，随后出现后端、前端启动提示。后端首次连接空库时，Flyway 会自动建表和记录迁移版本，因此<strong>不需要手工导入业务表结构，也不用在 Workbench 逐张建表</strong>。</p>
+<p>启动失败时先看 <code>.runtime\backend.stdout.log</code> 和 <code>.runtime\backend.stderr.log</code>；不要转而使用不带 <code>-MySql</code> 的命令掩盖数据库连接错误。</p>
+<h3>C7 确认程序确实连接了 MySQL</h3>
+<p>先打开网站，并执行健康检查：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Start-Process &#x27;http://localhost:5173&#x27;</code></pre></div>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>(Invoke-WebRequest -Uri &#x27;http://localhost:5173/api/v1/health&#x27; -UseBasicParsing -TimeoutSec 15).StatusCode</code></pre></div>
+<p>健康检查返回 <code>200</code> 后，用 C4 的项目账号命令再次进入 MySQL，执行：</p>
+<div class="code-block"><div class="code-label">SQL 命令 · 只在 mysql> 中执行</div><pre><code>SHOW TABLES;
+SELECT version, success FROM flyway_schema_history;
+SELECT COUNT(*) AS account_count FROM sys_user;</code></pre></div>
+<p>应看到 <code>employee</code>、<code>sys_user</code>、<code>attendance_daily</code> 等业务表，迁移记录 <code>success</code> 为 <code>1</code>，账号数量至少为 <code>1</code>。</p>
+<p>接着按第 8 步登录网页。首次使用新的 MySQL 空库时，会重新创建初始管理员，使用当前 <code>.env</code> 的初始密码登录并改密；原 H2 中改过的密码和员工记录不会自动出现在这里。再在网页创建一个虚构测试员工，执行下面的查询，应能在 MySQL 中查到它：</p>
+<div class="code-block"><div class="code-label">SQL 命令 · 只在 mysql> 中执行</div><pre><code>SELECT employee_no, name FROM employee ORDER BY id DESC LIMIT 5;</code></pre></div>
+<p>这一步把“网页能打开”和“业务数据确实写入 MySQL”联系起来。</p>
+<h3>C8 下次启动和停止</h3>
+<p>启动顺序固定为：<strong>MySQL 服务 → Java 后端 → Vue 前端 → 浏览器</strong>。</p>
+<ol start="1"><li>在 Windows 服务中确认 <code>MySQL84</code> 正在运行，未运行时先启动。</li><li>在项目根目录打开普通 PowerShell，设置当前窗口脚本执行策略。</li><li>执行 <code>scripts\stop.ps1</code> 清理上次本项目进程记录，成功后运行 <code>scripts\start.ps1 -Dev -BusinessOnly -MySql -TargetEnvironment</code>。</li><li>打开 <code>http://localhost:5173</code>，使用这个 MySQL 数据库中当前有效的网页账号密码。</li></ol>
+<p>使用完毕，执行 <code>scripts\stop.ps1</code> 只会停止本项目服务，<strong>不会停止 MySQL</strong>，因为其他应用也可能使用它。只想关闭网页和本项目前后端时，可以让 MySQL 继续运行。确认其他程序都不需要该数据库服务后，才在“服务”窗口右键 <code>MySQL84</code> 选择“停止”，或在管理员 PowerShell 执行：</p>
+<div class="code-block"><div class="code-label">PowerShell 命令</div><pre><code>Stop-Service -Name MySQL84</code></pre></div>
+<p>MySQL 数据由它自己的数据目录保存，不在 <code>backend\data\attendance.mv.db</code>。不要复制或删除 H2 文件来操作 MySQL 数据；需要备份时看 <a href="deployment.md">部署与备份说明</a>。</p>
+<h3>C9 数据库连接失败时先看这里</h3>
+<div class="table-wrap"><table><thead><tr><th>提示或现象</th><th>排查方向</th></tr></thead><tbody><tr><td>找不到 <code>MySQL84</code> 服务</td><td>重新核对 Configurator 是否执行完成，以及安装时的真实服务名称</td></tr><tr><td>服务启动被拒绝、权限不足</td><td>用管理员身份启动服务；项目本身继续由原来的普通用户运行</td></tr><tr><td><code>Can&#x27;t connect</code>、<code>Connection refused</code> 或 <code>Communications link failure</code></td><td>服务是否运行，地址和端口是否一致，3306 是否能连接</td></tr><tr><td><code>Access denied for user</code></td><td>先用 C4 的项目账号命令验证密码；核对两个本地来源账号及 <code>.env</code> 的 <code>DB_PASSWORD</code>，不要拿网页密码代替</td></tr><tr><td><code>Unknown database &#x27;face_attendance&#x27;</code></td><td>C4 的建库语句是否成功，<code>DB_URL</code> 中库名是否相同</td></tr><tr><td><code>Set DB_PASSWORD ...</code></td><td><code>.env</code> 里仍是占位值，改成已验证的项目数据库密码</td></tr><tr><td>提示找不到 <code>MySql</code> 参数</td><td>使用了旧启动脚本，重新取得本文配套的更新版压缩包</td></tr><tr><td>MySQL 没有业务表，但网页能用</td><td>检查启动命令是否漏了 <code>-MySql</code>，并按 C7 核对数据库</td></tr><tr><td>Flyway、建表或权限错误</td><td>保留完整错误，确认专用库授权；不要删除数据库或手工修改已执行迁移</td></tr></tbody></table></div>
+<p>MySQL 安装和服务操作依据官方说明；当前机器尚未安装 MySQL 8.4，本次没有执行真实 MySQL 建库、迁移和连接验收。完成 C7 才能确认你的目标电脑已实际连通。启动脚本的数据库选择及环境恢复逻辑另行检查，不替代 MySQL 实测。</p>
+<h2 id="section-15">完成检查</h2>
+<ul><li>已解压整个项目，能够找到脚本和后端 JAR。</li><li>Java 为 21 x64，Node 为 24.18.0 x64，pnpm 为 11.25.0。</li><li>已在新电脑生成自己的 <code>.env</code> 并安装前端依赖。</li><li>启动后能打开 <code>http://localhost:5173</code>，健康检查返回 200。</li><li>能用本机初始账号登录、修改密码，并再次使用新密码登录。</li><li>知道如何停止和重新启动服务：H2 数据在 <code>backend\data</code>，MySQL 数据由独立数据库服务保存。</li><li>选择 MySQL 时，已确认服务运行、专用账号可以登录、业务表和测试员工能在 MySQL 中查询到。</li><li>需要真实刷脸时，从附录 B 继续。</li></ul></main></div></body></html>

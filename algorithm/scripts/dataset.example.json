@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "consented-pilot-001",
+  "consentConfirmed": false,
+  "samples": [
+    {"path": "images/p01-front.jpg", "split": "enrollment", "subjectId": "p01", "employeeId": 1, "captureSession": "enroll-day1"},
+    {"path": "images/p01-left.jpg", "split": "enrollment", "subjectId": "p01", "employeeId": 1, "captureSession": "enroll-day1"},
+    {"path": "images/p01-right.jpg", "split": "enrollment", "subjectId": "p01", "employeeId": 1, "captureSession": "enroll-day1"},
+    {"path": "images/p01-calibration-01.jpg", "split": "calibration", "subjectId": "p01", "employeeId": 1, "captureSession": "calibration-day2"},
+    {"path": "images/u01-calibration-01.jpg", "split": "calibration", "subjectId": "u01", "employeeId": null, "captureSession": "calibration-day2"},
+    {"path": "images/p01-test-01.jpg", "split": "test", "subjectId": "p01", "employeeId": 1, "captureSession": "test-day3"},
+    {"path": "images/u01-test-01.jpg", "split": "test", "subjectId": "u01", "employeeId": null, "captureSession": "test-day3"}
+  ]
+}
