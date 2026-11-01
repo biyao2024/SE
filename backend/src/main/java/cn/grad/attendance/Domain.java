@@ -65,6 +65,7 @@ public final class Domain {
         @Column(nullable=false) public String address="";
         public double latitude,longitude;
         public int radiusMeters;
+        public int maxAccuracyMeters=100;
         public boolean active=true;
         public boolean deleted;
     }

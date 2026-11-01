@@ -1,5 +1,6 @@
 import { onBeforeUnmount, ref } from 'vue'
-import { validCoordinates, type LocationFix } from './locationMath.mjs'
+import type { LocationFix } from './locationMath.mjs'
+import { startLocationSampling } from './locationSampler.mjs'
 
 export type { LocationFix } from './locationMath.mjs'
 
@@ -8,21 +9,18 @@ export function useLocation() {
   const locating = ref(false)
   const locationError = ref('')
   let generation = 0
-  let settle: ((value: LocationFix | null) => void) | undefined
-  let timeout: ReturnType<typeof setTimeout> | undefined
+  let cancelSample: (() => void) | undefined
 
   function clearLocation() {
     generation++
-    if (timeout) clearTimeout(timeout)
-    timeout = undefined
-    settle?.(null)
-    settle = undefined
+    cancelSample?.()
+    cancelSample = undefined
     location.value = null
     locating.value = false
     locationError.value = ''
   }
 
-  async function locate(): Promise<LocationFix | null> {
+  async function locate(targetAccuracyMeters = 30): Promise<LocationFix | null> {
     if (locating.value) return null
     clearLocation()
     if (!window.isSecureContext) {
@@ -35,40 +33,18 @@ export function useLocation() {
     }
     const current = generation
     locating.value = true
-    return new Promise(resolve => {
-      settle = resolve
-      const finish = (value: LocationFix | null, message = '') => {
-        if (current !== generation) return
-        generation++
-        if (timeout) clearTimeout(timeout)
-        timeout = undefined
-        settle = undefined
-        location.value = value
-        locationError.value = message
-        locating.value = false
-        resolve(value)
-      }
-      // Also bound time spent waiting for the browser permission prompt.
-      timeout = setTimeout(() => finish(null, '定位等待超时，请确认定位权限后重试。'), 25_000)
-      try {
-        navigator.geolocation.getCurrentPosition(position => {
-          const { latitude, longitude, accuracy } = position.coords
-          if (!validCoordinates(latitude, longitude) || !Number.isFinite(accuracy) || accuracy <= 0 || !Number.isFinite(position.timestamp)) {
-            finish(null, '本次定位信息不完整，请重新获取位置。')
-            return
-          }
-          finish({ latitude, longitude, accuracyMeters: accuracy, capturedAt: position.timestamp })
-        }, error => {
-          const message = error.code === 1
-            ? '定位权限未开启。请在浏览器的网站权限中允许定位后重试。'
-            : error.code === 3 ? '定位超时，请移至信号较好的位置后重试。'
-              : '暂时无法获取位置，请检查系统定位服务和网络后重试。'
-          finish(null, message)
-        }, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 })
-      } catch {
-        finish(null, '无法启动定位，请检查系统和浏览器的定位权限。')
-      }
+    const sample = startLocationSampling(navigator.geolocation, {
+      targetAccuracyMeters,
+      onProgress: fix => { if (current === generation) location.value = fix },
     })
+    cancelSample = sample.cancel
+    const result = await sample.result
+    if (current !== generation) return null
+    cancelSample = undefined
+    locating.value = false
+    location.value = result.fix
+    locationError.value = result.error
+    return result.fix
   }
 
   onBeforeUnmount(clearLocation)

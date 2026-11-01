@@ -4,7 +4,7 @@ import { Camera, Location, Connection, Plus, Aim, Edit, Delete, Refresh } from '
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, post, put, remove, errorText } from '../api'
 import { useLoad } from '../composables'
-import { useLocation } from '../useLocation'
+import { useLocation, type LocationFix } from '../useLocation'
 import { modeLabels, type AttendanceMode, type AttendancePolicy, type AttendanceLocation } from '../attendancePolicy'
 
 const policy = ref<AttendancePolicy | null>(null)
@@ -12,8 +12,14 @@ const selectedMode = ref<AttendanceMode>('FACE')
 const locations = ref<AttendanceLocation[]>([])
 const savingPolicy = ref(false), policyError = ref('')
 const dialog = ref(false), editing = ref<number | null>(null), savingLocation = ref(false), formError = ref('')
-const { locating, locationError, locate, clearLocation } = useLocation()
-const form = reactive({ name: '', address: '', latitude: undefined as number | undefined, longitude: undefined as number | undefined, radiusMeters: 200, active: true })
+const { location: sampledLocation, locating, locationError, locate, clearLocation } = useLocation()
+const capturedPosition = ref<LocationFix | null>(null), coordinateConfirmed = ref(false)
+const form = reactive({ name: '', address: '', latitude: undefined as number | undefined, longitude: undefined as number | undefined, radiusMeters: 200, maxAccuracyMeters: 100, active: true })
+const effectiveAccuracy = computed(() => Math.min(policy.value?.maxAccuracyMeters ?? 500, form.maxAccuracyMeters, form.radiusMeters / 2))
+const needsCoordinateConfirmation = computed(() => Boolean(capturedPosition.value
+  && form.latitude === Number(capturedPosition.value.latitude.toFixed(6))
+  && form.longitude === Number(capturedPosition.value.longitude.toFixed(6))
+  && capturedPosition.value.accuracyMeters > Math.min(100, form.radiusMeters / 2)))
 const activeCount = computed(() => locations.value.filter(location => location.active).length)
 const modes: { value: AttendanceMode; title: string; description: string; icon: typeof Camera }[] = [
   { value: 'FACE', title: '人脸打卡', description: '使用已授权的公共终端完成身份识别', icon: Camera },
@@ -37,20 +43,23 @@ async function savePolicy() {
 
 function editLocation(location?: AttendanceLocation) {
   clearLocation(); editing.value = location?.id ?? null; formError.value = ''
-  Object.assign(form, location ? { name: location.name, address: location.address, latitude: location.latitude, longitude: location.longitude, radiusMeters: location.radiusMeters, active: location.active } : { name: '', address: '', latitude: undefined, longitude: undefined, radiusMeters: 200, active: true })
+  capturedPosition.value = null; coordinateConfirmed.value = false
+  Object.assign(form, location ? { name: location.name, address: location.address, latitude: location.latitude, longitude: location.longitude, radiusMeters: location.radiusMeters, maxAccuracyMeters: location.maxAccuracyMeters ?? 100, active: location.active } : { name: '', address: '', latitude: undefined, longitude: undefined, radiusMeters: 200, maxAccuracyMeters: 100, active: true })
   dialog.value = true
 }
 
 async function useCurrentPosition() {
   formError.value = ''
-  const position = await locate()
+  capturedPosition.value = null; coordinateConfirmed.value = false
+  const position = await locate(Math.min(30, effectiveAccuracy.value))
   if (!position || !dialog.value) return
-  if (position.accuracyMeters <= 0 || position.accuracyMeters > Math.min(policy.value?.maxAccuracyMeters ?? 100, form.radiusMeters / 2)) {
-    formError.value = `当前位置精度约 ±${Math.round(position.accuracyMeters)} 米，请在地点附近重新定位，或填写准确坐标。`
+  if (position.accuracyMeters > (policy.value?.maxAccuracyMeters ?? 500)) {
+    formError.value = `已尝试优化定位，当前估计误差约±${Math.ceil(position.accuracyMeters)}米，仍超过500米；请填写核实后的WGS84坐标。`
     return
   }
+  capturedPosition.value = position
   form.latitude = Number(position.latitude.toFixed(6)); form.longitude = Number(position.longitude.toFixed(6))
-  ElMessage.success('已填入当前位置，请确认地点名称和考勤半径')
+  ElMessage.success(needsCoordinateConfirmation.value ? '已填入估计坐标，保存前请核对并确认' : '已填入当前位置，请核对实际地点')
 }
 
 async function saveLocation() {
@@ -60,6 +69,8 @@ async function saveLocation() {
   if (form.latitude === undefined || form.longitude === undefined || !Number.isFinite(form.latitude) || !Number.isFinite(form.longitude)) { formError.value = '请获取当前位置或填写完整的经纬度'; return }
   if (form.latitude < -90 || form.latitude > 90 || form.longitude < -180 || form.longitude > 180) { formError.value = '纬度范围为 -90 至 90，经度范围为 -180 至 180'; return }
   if (!Number.isInteger(form.radiusMeters) || form.radiusMeters < 50 || form.radiusMeters > 5000) { formError.value = '考勤半径须为 50 至 5000 米的整数'; return }
+  if (!Number.isInteger(form.maxAccuracyMeters) || form.maxAccuracyMeters < 1 || form.maxAccuracyMeters > 500) { formError.value = '允许定位误差须为1至500米的整数'; return }
+  if (needsCoordinateConfirmation.value && !coordinateConfirmed.value) { formError.value = '请先核对估计坐标并勾选确认，或手动修正经纬度'; return }
   savingLocation.value = true
   try {
     const payload = { ...form, name: form.name.trim(), address: form.address.trim() }
@@ -104,7 +115,7 @@ async function deleteLocation(location: AttendanceLocation) {
       <div class="locations-grid" v-loading="loading">
         <article v-for="location in locations" :key="location.id" class="location-card" :class="{ inactive: !location.active }">
           <header><span class="location-pin"><el-icon><Location /></el-icon></span><div><h3>{{ location.name }}</h3><p>{{ location.address || '未填写地址说明' }}</p></div><el-tag :type="location.active ? 'success' : 'info'">{{ location.active ? '已启用' : '已停用' }}</el-tag></header>
-          <div class="location-range"><div class="radius-symbol" aria-hidden="true"><span /></div><div><span>考勤半径</span><strong>{{ location.radiusMeters }}<small>米</small></strong></div><div class="location-coordinates"><span>纬度 {{ location.latitude.toFixed(6) }}</span><span>经度 {{ location.longitude.toFixed(6) }}</span></div></div>
+          <div class="location-range"><div class="radius-symbol" aria-hidden="true"><span /></div><div><span>考勤半径</span><strong>{{ location.radiusMeters }}<small>米</small></strong><small>允许误差 ≤ {{ Math.min(location.maxAccuracyMeters ?? 100, location.radiusMeters / 2) }}米</small></div><div class="location-coordinates"><span>纬度 {{ location.latitude.toFixed(6) }}</span><span>经度 {{ location.longitude.toFixed(6) }}</span></div></div>
           <footer><span>以配置坐标为中心</span><div><el-button :icon="Edit" text @click="editLocation(location)">编辑</el-button><el-button :icon="Delete" text type="danger" @click="deleteLocation(location)">删除</el-button></div></footer>
         </article>
       </div>
@@ -117,8 +128,12 @@ async function deleteLocation(location: AttendanceLocation) {
         <el-form-item label="地址说明"><el-input v-model="form.address" maxlength="200" placeholder="填写楼栋、街道等方便员工识别的信息" /></el-form-item>
         <div class="coordinate-toolbar"><div><strong>地点坐标</strong><span>使用浏览器定位的 WGS84 坐标</span></div><el-button :icon="Aim" :loading="locating" @click="useCurrentPosition">使用当前位置</el-button></div>
         <el-alert v-if="locationError" :title="locationError" type="warning" :closable="false" />
+        <p v-if="locating" class="field-note">正在连续优化定位，最多20秒{{ sampledLocation ? '；当前最佳估计误差约±' + Math.ceil(sampledLocation.accuracyMeters) + '米' : '' }}。</p>
+        <el-alert v-if="needsCoordinateConfirmation" :title="'本次估计误差约±' + Math.ceil(capturedPosition!.accuracyMeters) + '米，已填入的坐标可能偏移；请核对实际地点。调整允许误差不会提高定位本身的精度。'" type="warning" :closable="false" />
+        <el-checkbox v-if="needsCoordinateConfirmation" v-model="coordinateConfirmed">我已核对地点，确认使用该估计坐标</el-checkbox>
         <div class="form-grid"><el-form-item label="纬度" required><el-input-number v-model="form.latitude" :min="-90" :max="90" :precision="6" :controls="false" placeholder="-90 至 90" /></el-form-item><el-form-item label="经度" required><el-input-number v-model="form.longitude" :min="-180" :max="180" :precision="6" :controls="false" placeholder="-180 至 180" /></el-form-item></div>
         <div class="form-grid"><el-form-item label="考勤半径（米）" required><el-input-number v-model="form.radiusMeters" :min="50" :max="5000" :step="50" :precision="0" /><span class="field-note">范围 50–5000 米</span></el-form-item><el-form-item label="地点状态"><el-switch v-model="form.active" active-text="启用" inactive-text="停用" /></el-form-item></div>
+        <el-form-item label="允许定位误差（米）" required><el-input-number v-model="form.maxAccuracyMeters" :min="1" :max="500" :step="25" :precision="0" /><span class="field-note">默认100米，实际采用{{ effectiveAccuracy }}米（不超过半径的一半）。室内约±137米时可评估使用150米误差上限与至少300米半径；这表示接受较大范围的位置估计，不能保证区分楼栋或房间。</span></el-form-item>
       </el-form>
       <template #footer><el-button @click="dialog = false">取消</el-button><el-button type="primary" :loading="savingLocation" :disabled="locating" @click="saveLocation">保存地点</el-button></template>
     </el-dialog>

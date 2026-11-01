@@ -15,6 +15,7 @@ export interface AttendanceLocation {
   latitude: number
   longitude: number
   radiusMeters: number
+  maxAccuracyMeters: number
   active: boolean
 }
 

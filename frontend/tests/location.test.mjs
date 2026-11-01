@@ -71,6 +71,15 @@ test('distance labels preserve units and do not render invalid results', () => {
   assert.equal(formatDistance(-1), '—')
 })
 
+test('indoor accuracy is accepted only by an explicitly configured site and remains bounded by radius', () => {
+  const fix = { latitude: 31.2, longitude: 121.5, accuracyMeters: 137, capturedAt: 1 }
+  const place = { id: 1, latitude: 31.2, longitude: 121.5, radiusMeters: 300, active: true }
+  assert.equal(evaluateLocationRange(fix, [place], 500).reason, 'INACCURATE')
+  assert.equal(evaluateLocationRange(fix, [{ ...place, maxAccuracyMeters: 150 }], 500).matchedLocationId, 1)
+  assert.equal(evaluateLocationRange(fix, [{ ...place, radiusMeters: 200, maxAccuracyMeters: 150 }], 500).reason, 'INACCURATE')
+  assert.equal(evaluateLocationRange({ ...fix, latitude: 31.21 }, [{ ...place, maxAccuracyMeters: 150 }], 500).reason, 'OUTSIDE')
+})
+
 test('correction dates span seven ended calendar days across month boundaries', () => {
   assert.equal(shiftDate('2026-11-01', -7), '2026-10-25')
   assert.equal(shiftDate('2024-03-01', -1), '2024-02-29')

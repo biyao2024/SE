@@ -225,6 +225,35 @@ class LocationAttendanceIntegrationTest {
         assertThat(store.list(PunchEvent.class, "")).isEmpty();
     }
 
+    @Test void administratorCanPersistSiteSpecificIndoorToleranceWithoutChangingDefaultSites() throws Exception {
+        employee("INDOOR"); long id = addLocation("室内场地", 300, true); mode("LOCATION");
+        rejectedPosition("INDOOR", "accuracyMeters", 137, 400, "LOCATION_INACCURATE");
+        var configuration = new LinkedHashMap<>(location("室内场地", 300, true));
+        configuration.put("maxAccuracyMeters", 150);
+        request(put("/api/v1/attendance-locations/" + id), configuration, "INDOOR", "EMPLOYEE").andExpect(status().isForbidden());
+        request(put("/api/v1/attendance-locations/" + id), configuration, "admin", "ADMIN")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.maxAccuracyMeters").value(150));
+        store.flush();
+        mvc.perform(get("/api/v1/attendance-locations").with(user("INDOOR").roles("EMPLOYEE")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].maxAccuracyMeters").value(150));
+        var body = position("IN"); body.put("accuracyMeters", 137);
+        punch("INDOOR", body).andExpect(status().isOk());
+        assertThat(store.list(PunchEvent.class, "").getFirst().accuracyMeters).isEqualTo(137);
+    }
+
+    @Test void siteAccuracyLimitsRejectInvalidValuesAndLegacyUpdatesKeepTheConfiguredLimit() throws Exception {
+        long id = addLocation("定位配置", 300, true);
+        var configuration = new LinkedHashMap<>(location("定位配置", 300, true));
+        for (var invalid : List.of(0, 501, 1.5)) {
+            configuration.put("maxAccuracyMeters", invalid);
+            request(put("/api/v1/attendance-locations/" + id), configuration, "admin", "ADMIN").andExpect(status().isBadRequest());
+        }
+        configuration.put("maxAccuracyMeters", 150);
+        request(put("/api/v1/attendance-locations/" + id), configuration, "admin", "ADMIN").andExpect(status().isOk());
+        request(put("/api/v1/attendance-locations/" + id), location("旧客户端更新", 300, true), "admin", "ADMIN")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.maxAccuracyMeters").value(150));
+    }
+
     @Test void smallGeofenceRequiresAccuracyWithinHalfItsRadius() throws Exception {
         employee("PRECISE"); addLocation("小范围", 50, true); mode("LOCATION");
         rejectedPosition("PRECISE", "accuracyMeters", 26, 400, "LOCATION_INACCURATE");

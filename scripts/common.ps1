@@ -93,7 +93,9 @@ function Start-OwnedProcess([string]$Name, [string]$Executable, [string[]]$Argum
 }
 
 function Get-OwnedProcess([string]$RecordPath) {
-    $record = Get-Content -Raw -LiteralPath $RecordPath | ConvertFrom-Json
+    # PowerShell 7 writes UTF-8 without BOM; Windows PowerShell otherwise reads
+    # these paths using the legacy code page and corrupts Chinese directory names.
+    $record = Get-Content -Raw -LiteralPath $RecordPath -Encoding UTF8 | ConvertFrom-Json
     if ($record.ProjectRoot -ne $script:ProjectRoot) { throw "Process record belongs to another project: $RecordPath" }
     $process = Get-Process -Id $record.Id -ErrorAction SilentlyContinue
     if ($null -eq $process) { return $null }

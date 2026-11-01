@@ -10,7 +10,7 @@ import StatusTag from '../components/StatusTag.vue'
 
 type PunchType = 'IN' | 'OUT'
 interface DailyRecord { date: string; checkIn: string | null; checkOut: string | null; status: string; late: boolean; early: boolean; correctionCount: number }
-interface Place { id: number; name: string; address: string; latitude: number; longitude: number; radiusMeters: number; active: boolean }
+interface Place { id: number; name: string; address: string; latitude: number; longitude: number; radiusMeters: number; maxAccuracyMeters: number; active: boolean }
 interface HomeData {
   date: string; serverTime: string
   employee: { id: number; name: string; employeeNo: string; departmentName: string; active: boolean; faceEnrolled: boolean }
@@ -78,6 +78,7 @@ const faceEnabled = computed(() => home.value?.policy?.faceEnabled ?? true)
 const locationEnabled = computed(() => home.value?.policy?.locationEnabled ?? false)
 const showLocationSection = computed(() => locationEnabled.value || !!pendingPayload.value || !!punchResult.value)
 const places = computed(() => (home.value?.locations || []).filter(place => place.active))
+const samplingTarget = computed(() => Math.min(30, ...places.value.map(place => Math.min(place.maxAccuracyMeters ?? 100, place.radiusMeters / 2))))
 const serverClock = computed(() => {
   if (!Number.isFinite(serverTimestamp.value) || !home.value) return null
   const timestamp = serverTimestamp.value + monotonicNow.value - serverReceivedAt.value
@@ -99,7 +100,7 @@ const nearestPlaces = computed(() => places.value.map(place => ({
   distance: location.value ? distanceMeters(location.value.latitude, location.value.longitude, place.latitude, place.longitude) : null,
 })).sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)))
 const locationCaption = computed(() => {
-  if (locating.value) return '正在获取当前位置…'
+  if (locating.value) return location.value ? `正在优化定位，当前最佳估计误差约±${Math.ceil(location.value.accuracyMeters)}米，最多20秒…` : '正在获取当前位置，最多20秒…'
   if (!location.value) return '点击定位打卡时获取一次位置'
   if (fixIssue.value === 'STALE') return '上次位置已过期，下次打卡会重新定位'
   if (fixIssue.value === 'INACCURATE') return `当前精度约 ±${Math.ceil(location.value.accuracyMeters)} 米，请到开阔处重试`
@@ -170,13 +171,13 @@ async function punch(type: PunchType) {
     await fetchHome()
     if (disposed) return
     if (!canPunch(type)) { punchError.value = unavailableReason.value || '当前不在该类型的打卡时段。'; return }
-    const fix = await locate()
+    const fix = await locate(samplingTarget.value)
     if (!fix || disposed) return
     now.value = Date.now()
     const issue = locationFixIssue(fix, now.value, home.value?.policy.maxPositionAgeSeconds, home.value?.policy.maxAccuracyMeters)
     if (issue) {
       punchError.value = issue === 'INACCURATE'
-        ? `当前定位精度约 ±${Math.ceil(fix.accuracyMeters)} 米，请移至开阔处重新打卡。`
+        ? `当前估计误差约±${Math.ceil(fix.accuracyMeters)}米，超过系统处理上限；请重新定位。`
         : '未获取到新鲜、有效的位置，请检查设备时间后重新定位。'
       return
     }
@@ -200,7 +201,7 @@ async function retryPunch() {
 async function inspectLocation() {
   if (submitting.value || pendingPayload.value || locating.value) return
   punchError.value = ''
-  await locate()
+  await locate(samplingTarget.value)
   now.value = Date.now()
 }
 function pendingFor(row: DailyRecord) {
@@ -262,7 +263,7 @@ onBeforeUnmount(() => { disposed = true; if (timer) clearInterval(timer); docume
               <div class="location-actions"><el-button type="primary" :loading="submitting && attemptType === 'IN'" :disabled="submitting || locating || loading || !canPunch('IN')" @click="punch('IN')">定位签到</el-button><el-button :loading="submitting && attemptType === 'OUT'" :disabled="submitting || locating || loading || !canPunch('OUT')" @click="punch('OUT')">定位签退</el-button></div>
             </template>
             <div class="punch-windows"><span>签到 {{ timeText(home.rule.inWindowStart) }}–{{ timeText(home.rule.inWindowEnd) }}</span><span>签退 {{ timeText(home.rule.outWindowStart) }}–{{ timeText(home.rule.outWindowEnd) }}</span></div>
-            <div class="location-places"><div class="places-heading"><h3>可用打卡地点</h3><span>{{ places.length }} 处</span></div><p v-if="!places.length" class="empty-copy">管理员设置地点后，即可使用定位打卡。</p><article v-for="place in nearestPlaces" :key="place.id" class="place-row"><span class="place-dot"><el-icon><Location /></el-icon></span><div><strong>{{ place.name }}</strong><p v-if="place.address">{{ place.address }}</p><small>允许半径 {{ place.radiusMeters }} 米<br>定位精度需在 {{ Math.min(home.policy.maxAccuracyMeters || 100, place.radiusMeters / 2) }} 米以内</small></div><span class="place-distance">{{ place.distance === null ? '待定位' : '距 ' + formatDistance(place.distance) }}</span></article></div>
+            <div class="location-places"><div class="places-heading"><h3>可用打卡地点</h3><span>{{ places.length }} 处</span></div><p v-if="!places.length" class="empty-copy">管理员设置地点后，即可使用定位打卡。</p><article v-for="place in nearestPlaces" :key="place.id" class="place-row"><span class="place-dot"><el-icon><Location /></el-icon></span><div><strong>{{ place.name }}</strong><p v-if="place.address">{{ place.address }}</p><small>允许半径 {{ place.radiusMeters }} 米<br>定位精度需在 {{ Math.min(home.policy.maxAccuracyMeters || 100, place.maxAccuracyMeters ?? 100, place.radiusMeters / 2) }} 米以内</small></div><span class="place-distance">{{ place.distance === null ? '待定位' : '距 ' + formatDistance(place.distance) }}</span></article></div>
             <p class="location-note">仅在操作时获取位置，不持续跟踪。距离仅供参考，打卡结果以服务端校验为准。</p>
           </section>
 

@@ -37,9 +37,10 @@ export function evaluateLocationRange(fix, locations, maxAccuracyMeters = 100) {
     .filter(({ place, distance }) => distance <= place.radiusMeters)
     .sort((a, b) => a.distance - b.distance)
   if (!inside.length) return { reason: 'OUTSIDE', matchedLocationId: null, accuracyLimit: maxAccuracyMeters }
-  const matched = inside.find(({ place }) => fix.accuracyMeters <= Math.min(maxAccuracyMeters, place.radiusMeters / 2))
-  if (matched) return { reason: null, matchedLocationId: matched.place.id, accuracyLimit: Math.min(maxAccuracyMeters, matched.place.radiusMeters / 2) }
-  return { reason: 'INACCURATE', matchedLocationId: null, accuracyLimit: Math.max(...inside.map(({ place }) => Math.min(maxAccuracyMeters, place.radiusMeters / 2))) }
+  const limit = place => Math.min(maxAccuracyMeters, place.maxAccuracyMeters ?? 100, place.radiusMeters / 2)
+  const matched = inside.find(({ place }) => fix.accuracyMeters <= limit(place))
+  if (matched) return { reason: null, matchedLocationId: matched.place.id, accuracyLimit: limit(matched.place) }
+  return { reason: 'INACCURATE', matchedLocationId: null, accuracyLimit: Math.max(...inside.map(({ place }) => limit(place))) }
 }
 
 export function formatDistance(meters) {

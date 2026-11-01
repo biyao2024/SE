@@ -57,6 +57,19 @@ class AttendancePolicyServiceTest {
             error -> assertThat(error.code).isEqualTo("LOCATION_UNAVAILABLE"));
     }
 
+    @Test void indoorToleranceMustBeExplicitAndCannotOverrideRadiusOrOutsideRejection() {
+        var site = location(1, 31, 121, 300);
+        locations(site);
+        assertThatThrownBy(() -> policy.locate(31, 121, 137)).isInstanceOf(Api.Failure.class);
+        site.maxAccuracyMeters = 150;
+        assertThat(policy.locate(31, 121, 137).location()).isSameAs(site);
+        site.radiusMeters = 200;
+        assertThatThrownBy(() -> policy.locate(31, 121, 137)).isInstanceOf(Api.Failure.class);
+        site.radiusMeters = 300;
+        assertThatThrownBy(() -> policy.locate(31.01, 121, 137)).isInstanceOfSatisfying(Api.Failure.class,
+            error -> assertThat(error.code).isEqualTo("OUTSIDE_LOCATION"));
+    }
+
     @Test void rejectsInvalidCoordinatesAndFractionalOrOverflowingIntegerFields() {
         assertThatThrownBy(() -> AttendancePolicyService.validateCoordinates(Double.NaN, 0)).isInstanceOf(Api.Failure.class);
         assertThatThrownBy(() -> AttendancePolicyService.validateCoordinates(0, 181)).isInstanceOf(Api.Failure.class);

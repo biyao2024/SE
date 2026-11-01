@@ -194,7 +194,7 @@ public class EmployeeAttendanceController {
         AttendancePolicyService.validateCoordinates(latitude, longitude);
         double accuracy = AttendancePolicyService.number(body, "accuracyMeters");
         if (accuracy <= 0 || accuracy > AttendancePolicyService.MAX_ACCURACY_METERS)
-            throw Api.error(400, "LOCATION_INACCURATE", "定位精度须在100米以内，请到开阔位置重新定位");
+            throw Api.error(400, "LOCATION_INACCURATE", "定位误差超过系统上限500米，请重新定位");
         long capturedAt = AttendancePolicyService.integer(body, "capturedAt");
         String requestId = Api.required(body, "requestId", 36);
         try {

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AttendancePolicyService {
-    public static final double MAX_ACCURACY_METERS = 100;
+    public static final double MAX_ACCURACY_METERS = 500;
     public static final long MAX_POSITION_AGE_SECONDS = 60;
     private static final Set<String> MODES = Set.of("FACE", "LOCATION", "FACE_OR_LOCATION");
     private final Store store;
@@ -48,7 +48,7 @@ public class AttendancePolicyService {
     public Map<String, Object> locationView(AttendanceLocation location) {
         return Map.of("id", location.id, "name", location.name, "address", location.address,
             "latitude", location.latitude, "longitude", location.longitude,
-            "radiusMeters", location.radiusMeters, "active", location.active);
+            "radiusMeters", location.radiusMeters, "maxAccuracyMeters", location.maxAccuracyMeters, "active", location.active);
     }
 
     /** Call after obtaining AttendanceService.guard(). */
@@ -74,6 +74,9 @@ public class AttendancePolicyService {
         validateCoordinates(latitude, longitude);
         long radius = integer(body, "radiusMeters");
         if (radius < 50 || radius > 5000) throw Api.error(400, "INVALID_LOCATION", "考勤半径须为50至5000米的整数");
+        long accuracy = body.containsKey("maxAccuracyMeters") ? integer(body, "maxAccuracyMeters") : location.maxAccuracyMeters;
+        if (accuracy < 1 || accuracy > MAX_ACCURACY_METERS)
+            throw Api.error(400, "INVALID_LOCATION", "允许定位误差须为1至500米的整数");
         boolean active = body.containsKey("active") ? booleanValue(body.get("active")) : true;
         if (!active && location.active && location.id != null) requireOtherActiveLocation(location.id);
         location.name = name;
@@ -81,10 +84,11 @@ public class AttendancePolicyService {
         location.latitude = latitude;
         location.longitude = longitude;
         location.radiusMeters = (int) radius;
+        location.maxAccuracyMeters = (int) accuracy;
         location.active = active;
         if (id == null) store.save(location);
         attendance.audit(actorId, id == null ? "CREATE_ATTENDANCE_LOCATION" : "UPDATE_ATTENDANCE_LOCATION",
-            location.id.toString(), location.name + ", radius=" + radius + ", active=" + active);
+            location.id.toString(), location.name + ", radius=" + radius + ", accuracy=" + accuracy + ", active=" + active);
         return locationView(location);
     }
 
@@ -113,7 +117,7 @@ public class AttendancePolicyService {
     public Located locate(double latitude, double longitude, double accuracyMeters) {
         validateCoordinates(latitude, longitude);
         if (!Double.isFinite(accuracyMeters) || accuracyMeters <= 0 || accuracyMeters > MAX_ACCURACY_METERS)
-            throw Api.error(400, "LOCATION_INACCURATE", "定位精度须在100米以内，请到开阔位置重新定位");
+            throw Api.error(400, "LOCATION_INACCURATE", "定位误差超过系统上限500米，请重新定位");
         var locations = activeLocations();
         if (locations.isEmpty()) throw Api.error(409, "LOCATION_UNAVAILABLE", "暂无启用的考勤地点，请联系管理员");
         var inside = locations.stream().map(location -> new Located(location,
@@ -121,8 +125,15 @@ public class AttendancePolicyService {
             .filter(located -> located.distanceMeters() <= located.location().radiusMeters)
             .sorted(Comparator.comparingDouble(Located::distanceMeters)).toList();
         if (inside.isEmpty()) throw Api.error(403, "OUTSIDE_LOCATION", "当前位置不在启用的考勤地点范围内");
-        return inside.stream().filter(located -> accuracyMeters <= located.location().radiusMeters / 2.0)
-            .findFirst().orElseThrow(() -> Api.error(400, "LOCATION_INACCURATE", "当前位置精度不足，请到开阔位置重新定位"));
+        return inside.stream().filter(located -> accuracyMeters <= accuracyLimit(located.location()))
+            .findFirst().orElseThrow(() -> Api.error(400, "LOCATION_INACCURATE",
+                "当前估计误差约±" + Math.ceil(accuracyMeters) + "米，此处允许误差不超过"
+                + inside.stream().mapToDouble(located -> accuracyLimit(located.location())).max().orElse(100)
+                + "米；请重新定位或联系管理员核对地点配置"));
+    }
+
+    private static double accuracyLimit(AttendanceLocation location) {
+        return Math.min(MAX_ACCURACY_METERS, Math.min(location.maxAccuracyMeters, location.radiusMeters / 2.0));
     }
 
     /** Great-circle distance for browser WGS84 latitude/longitude, in meters. */
