@@ -51,7 +51,7 @@ onBeforeUnmount(()=>{window.removeEventListener('session-expired',clearDiagnosti
       </router-link>
       <div class="header-context"><span></span>{{ props.diagnostic ? '管理员诊断' : '自助打卡' }}</div>
       <router-link class="public-nav" :to="props.diagnostic ? '/settings' : '/login'">
-        {{ props.diagnostic ? '返回系统运行' : '管理入口' }} <span aria-hidden="true">↗</span>
+        {{ props.diagnostic ? '返回系统运行' : '登录工作台' }} <span aria-hidden="true">↗</span>
       </router-link>
     </header>
 

@@ -6,7 +6,7 @@ import { errorText } from '../api'
 import { ElMessage } from 'element-plus'
 import { Lock } from '@element-plus/icons-vue'
 const auth = useAuth(), router = useRouter(), oldPassword = ref(''), newPassword = ref(''), confirm = ref(''), loading = ref(false), error = ref('')
-async function submit() { error.value=''; if (newPassword.value.length<12 || newPassword.value===oldPassword.value) { error.value='新密码至少12位，且不能与原密码相同'; return }; if (newPassword.value!==confirm.value) { error.value='两次输入的新密码不一致'; return }; loading.value=true; try { await auth.password(oldPassword.value,newPassword.value); oldPassword.value=''; newPassword.value=''; confirm.value=''; ElMessage.success('密码修改成功'); router.replace('/') } catch(e) { error.value=errorText(e) } finally { loading.value=false } }
+async function submit() { error.value=''; if (newPassword.value.length<12 || !/[A-Za-z]/.test(newPassword.value) || !/[0-9]/.test(newPassword.value) || new TextEncoder().encode(newPassword.value).length>72) { error.value='新密码至少12字符，包含字母和数字，UTF-8编码不超过72字节'; return }; if (newPassword.value===oldPassword.value) { error.value='新密码不能与当前密码相同'; return }; if (newPassword.value!==confirm.value) { error.value='两次输入的新密码不一致'; return }; loading.value=true; try { await auth.password(oldPassword.value,newPassword.value); oldPassword.value=''; newPassword.value=''; confirm.value=''; ElMessage.success('密码修改成功'); router.replace(auth.isAdmin ? '/' : '/employee') } catch(e) { error.value=errorText(e) } finally { loading.value=false } }
 </script>
 <template>
   <div class="page-head"><div><h1>修改密码</h1><p>管理当前账号的登录凭据</p></div></div>
@@ -15,7 +15,7 @@ async function submit() { error.value=''; if (newPassword.value.length<12 || new
     <aside class="password-summary">
       <span class="password-symbol"><el-icon><Lock /></el-icon></span>
       <h2>账号安全</h2>
-      <p>新密码至少 12 位，且与当前密码不同。</p>
+      <p>新密码至少 12 字符，包含字母和数字，且与当前密码不同。</p>
       <div class="password-account"><span class="avatar">{{auth.user?.name?.slice(0,1)||'用'}}</span><div>{{auth.user?.name||auth.user?.username}}<small>{{auth.user?.username}}</small></div></div>
     </aside>
     <div class="panel password-form">

@@ -3,7 +3,8 @@ import { ref, onMounted } from 'vue'
 import { Download, Search } from '@element-plus/icons-vue'
 import { api, items, query, download, errorText, type Page } from '../api'
 import { useAuth } from '../stores/auth'
-import { useLoad, monthRange, timeText, statusNames } from '../composables'
+import { useLoad, monthRange, timeText, statusNames, today } from '../composables'
+import { correctionDateEligible } from '../locationMath.mjs'
 import { ElMessage } from 'element-plus'
 import StatusTag from '../components/StatusTag.vue'
 const testRows=ref<any[]>([]),testError=ref('');async function loadTests(){testError.value='';try{testRows.value=await api('/attendance/test-events?'+query({from:range.value[0],to:range.value[1]}))}catch(e){testError.value=errorText(e)}}
@@ -13,10 +14,18 @@ const {loading,error,load}=useLoad(async()=>{const data=await api<Page<any>>('/a
 onMounted(async()=>{if(auth.isAdmin)try{const [d,e]=await Promise.all([api('/departments?size=200'),api('/employees?size=200')]);departments.value=items(d);employees.value=items(e)}catch(e){ElMessage.error(errorText(e))}})
 function search(){page.value=1;load()}
 async function exportFile(){exporting.value=true;try{await download('/attendance/export?'+query(params()),`考勤报表_${range.value[0]}_${range.value[1]}.xlsx`)}catch(e){ElMessage.error(errorText(e))}finally{exporting.value=false}}
+function correctionTypes(row:any): ('IN'|'OUT')[] {
+  if (auth.isAdmin || !row.required || row.leave || !correctionDateEligible(row.date,today())) return []
+  const types: ('IN'|'OUT')[] = []
+  if (!row.checkIn || row.late) types.push('IN')
+  if (!row.checkOut || row.early) types.push('OUT')
+  return types
+}
+function correctionLink(row:any,type:'IN'|'OUT') { return { path:'/employee/requests',query:{requestType:'correction',new:'1',date:row.date,punchType:type} } }
 </script>
 
 <template>
-  <div class="attendance-page">
+  <div class="attendance-page" :class="{ 'personal-attendance': !auth.isAdmin }">
     <header class="page-head record-heading">
       <div>
         <h1>{{ auth.isAdmin ? '考勤记录' : '我的考勤' }}</h1>
@@ -60,7 +69,7 @@ async function exportFile(){exporting.value=true;try{await download('/attendance
       </div>
       <el-alert v-if="error" class="table-alert" :title="error" type="error" :closable="false" />
       <el-table :data="rows" v-loading="loading" class="record-table" empty-text="当前筛选范围暂无考勤记录">
-        <el-table-column label="员工" min-width="190">
+        <el-table-column v-if="auth.isAdmin" label="员工" min-width="190">
           <template #default="{ row }">
             <div class="person-cell">
               <span class="person-avatar">{{ row.employeeName?.slice(0,1) }}</span>
@@ -68,7 +77,7 @@ async function exportFile(){exporting.value=true;try{await download('/attendance
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="departmentName" label="部门" min-width="125" />
+        <el-table-column v-if="auth.isAdmin" prop="departmentName" label="部门" min-width="125" />
         <el-table-column prop="date" label="考勤日期" width="125" />
         <el-table-column label="签到" width="110">
           <template #default="{ row }"><span class="punch-time" :class="{ 'time-empty': !row.checkIn }">{{ timeText(row.checkIn) }}</span></template>
@@ -82,14 +91,24 @@ async function exportFile(){exporting.value=true;try{await download('/attendance
         <el-table-column label="人工修正" width="105" align="right">
           <template #default="{ row }"><span :class="row.correctionCount ? 'correction-count' : 'time-empty'">{{ row.correctionCount ? row.correctionCount + ' 次' : '—' }}</span></template>
         </el-table-column>
+        <el-table-column v-if="!auth.isAdmin" label="异常处理" min-width="170" align="right"><template #default="{ row }"><div class="correction-links"><router-link v-for="type in correctionTypes(row)" :key="type" :to="correctionLink(row,type)"><el-button text type="primary" size="small">{{ type === 'IN' ? '补签到' : '补签退' }}</el-button></router-link></div></template></el-table-column>
       </el-table>
+      <div v-if="!auth.isAdmin" class="personal-records" v-loading="loading">
+        <p v-if="!rows.length && !loading" class="empty-note">当前筛选范围暂无考勤记录</p>
+        <article v-for="row in rows" :key="row.id ?? row.date" class="personal-record">
+          <header><strong>{{ row.date }}</strong><StatusTag :status="row.status" :late="row.late" :early="row.early" /></header>
+          <div class="personal-times"><div><span>上班签到</span><strong>{{timeText(row.checkIn)}}</strong></div><div><span>下班签退</span><strong>{{timeText(row.checkOut)}}</strong></div></div>
+          <footer v-if="row.correctionCount || correctionTypes(row).length"><span>{{ row.correctionCount ? '已批准补卡 ' + row.correctionCount + ' 次' : '异常可申请补卡' }}</span><div class="correction-links"><router-link v-for="type in correctionTypes(row)" :key="type" :to="correctionLink(row,type)"><el-button text type="primary" size="small">{{type === 'IN' ? '补签到' : '补签退'}}</el-button></router-link></div></footer>
+        </article>
+      </div>
       <footer class="record-footer">
         <span>导出包含考勤明细与月度汇总</span>
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total" :page-sizes="[20,50,100]" layout="prev, pager, next, sizes" @change="load" />
       </footer>
     </section>
 
-    <details class="test-section">
+    <p v-if="!auth.isAdmin" class="footnote">可从异常记录申请补卡。补卡范围为最近 7 个已结束自然日中的工作日。</p>
+    <details v-if="auth.isAdmin" class="test-section">
       <summary>
         <div><span class="disclosure-arrow" aria-hidden="true"></span><strong>测试打卡记录</strong><span class="test-label">不计入正式报表</span></div>
         <span class="test-disclosure">查看记录</span>
@@ -111,6 +130,8 @@ async function exportFile(){exporting.value=true;try{await download('/attendance
 
 <style scoped>
 .record-heading { margin-bottom: 26px; align-items: flex-end; }
+.personal-records { display: none; }
+.correction-links { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .record-heading h1 { font-size: 28px; letter-spacing: -.7px; }
 .record-heading p { color: #6e785f; margin-top: 9px; }
 .record-surface { background: #fffefa; border: 1px solid #e3e6dd; border-radius: 12px; overflow: hidden; }
@@ -161,5 +182,20 @@ async function exportFile(){exporting.value=true;try{await download('/attendance
   .record-note { display: none; }
   .record-footer { align-items: flex-start; flex-direction: column; padding: 17px 18px; overflow-x: auto; }
   .test-label { display: none; }
+}
+@media (max-width: 600px) {
+  .personal-attendance .record-table { display: none; }
+  .personal-records { display: block; padding: 0 16px; }
+  .personal-record { padding: 20px 0; border-top: 1px solid #e6ebdf; }
+  .personal-record header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .personal-record header > strong { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .personal-record header :deep(.status-stack) { justify-content: flex-end; }
+  .personal-times { display: grid; grid-template-columns: 1fr 1fr; margin: 21px 0 4px; }
+  .personal-times > div { display: flex; flex-direction: column; gap: 8px; }
+  .personal-times > div + div { border-left: 1px solid #e6ebdf; padding-left: 24px; }
+  .personal-times span { color: #86947a; font-size: 10px; }
+  .personal-times strong { color: #3b5135; font-size: 23px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .personal-record footer { display: flex; justify-content: space-between; align-items: center; gap: 9px; margin-top: 19px; padding-top: 12px; border-top: 1px dashed #e4e9dc; }
+  .personal-record footer > span { font-size: 10px; color: #8a947e; }
 }
 </style>
