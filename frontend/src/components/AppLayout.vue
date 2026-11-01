@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   DataBoard, Calendar, DocumentChecked, User, Monitor, Setting,
-  Timer, List, ArrowRight, Menu, SwitchButton, Lock, Camera, ArrowDown, Fold, Expand,
+  Timer, List, ArrowRight, Menu, SwitchButton, Lock, Camera, ArrowDown, Fold, Expand, Location,
 } from '@element-plus/icons-vue'
 import { useAuth } from '../stores/auth'
 import { ElMessage } from 'element-plus'
@@ -32,6 +32,7 @@ const adminNav = [
   { path: '/employees', title: '人员与部门', icon: User },
   { path: '/devices', title: '打卡设备', icon: Monitor },
   { path: '/rules', title: '规则与日历', icon: Timer },
+  { path: '/attendance-policy', title: '考勤方式与地点', icon: Location },
   { path: '/diagnostics', title: '识别诊断', icon: Camera },
   { path: '/settings', title: '系统运行', icon: Setting },
   { path: '/audit', title: '操作日志', icon: List },

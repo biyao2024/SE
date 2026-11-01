@@ -1,24 +1,60 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { api, post, items, query, errorText } from '../api'
-import { useLoad, today } from '../composables'
+import { today } from '../composables'
 import { useAuth } from '../stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StatusTag from '../components/StatusTag.vue'
-const auth=useAuth(),tab=ref<'leave'|'correction'>('leave'),rows=ref<any[]>([]),page=ref(1),total=ref(0),status=ref(''),dialog=ref(false),saving=ref(false),formError=ref(''),reviewOpen=ref(false),reviewRow=ref<any>(null),approved=ref(true),comment=ref('')
-const form=reactive({range:[] as string[],type:'PERSONAL',reason:'',date:'',requestedTime:'09:00',punchType:'IN'})
+import { correctionDateEligible } from '../locationMath.mjs'
+const route=useRoute(),router=useRouter()
+const requestStatuses=['PENDING','APPROVED','REJECTED','CANCELLED']
+const auth=useAuth(),tab=ref<'leave'|'correction'>(route.query.requestType==='correction'?'correction':'leave'),rows=ref<any[]>([]),page=ref(1),total=ref(0),status=ref(typeof route.query.status==='string'&&requestStatuses.includes(route.query.status)?route.query.status:''),dialog=ref(false),saving=ref(false),formError=ref(''),reviewOpen=ref(false),reviewRow=ref<any>(null),approved=ref(true),comment=ref('')
+const form=reactive({range:[] as string[],type:'PERSONAL',reason:'',date:'',requestedTime:'',punchType:'IN'})
 const leaveTypes:Record<string,string>={PERSONAL:'事假',SICK:'病假',ANNUAL:'年假',OTHER:'其他'}
 const path=()=>`/${tab.value}-requests`
-const {loading,error,load}=useLoad(async()=>{const data=await api(path()+'?'+query({page:page.value-1,size:20,status:status.value}));rows.value=items(data);total.value=data.total??rows.value.length})
-watch(tab,()=>{page.value=1;status.value='';load()})
-function newRequest(){Object.assign(form,{range:[],type:'PERSONAL',reason:'',date:'',requestedTime:'09:00',punchType:'IN'});formError.value='';dialog.value=true}
+const loading=ref(false),error=ref(''),reviewPath=ref('')
+let loadVersion=0
+async function load(){
+  const current=++loadVersion,resource=path(),params={page:page.value-1,size:20,status:status.value}
+  loading.value=true;error.value='';rows.value=[]
+  try{const data=await api(resource+'?'+query(params));if(current!==loadVersion)return;rows.value=items(data);total.value=data.total??rows.value.length}
+  catch(e){if(current===loadVersion)error.value=errorText(e)}
+  finally{if(current===loadVersion)loading.value=false}
+}
+onMounted(load)
+onBeforeUnmount(()=>{loadVersion++})
+let applyingQuery=false,queryHandled=false
+watch(tab,()=>{if(applyingQuery)return;reviewOpen.value=false;dialog.value=false;page.value=1;status.value='';load()},{flush:'sync'})
+function newRequest(){Object.assign(form,{range:[],type:'PERSONAL',reason:'',date:'',requestedTime:'',punchType:'IN'});formError.value='';dialog.value=true}
 function disabledDate(date:Date){const value=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);const lower=new Date(`${today()}T00:00:00+08:00`);lower.setUTCDate(lower.getUTCDate()-7);const first=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(lower);return value>=today()||value<first}
 async function submit(){if(!form.reason.trim()){formError.value='请填写申请原因';return}if(tab.value==='leave'&&form.range.length!==2){formError.value='请选择完整的请假日期区间';return}if(tab.value==='correction'&&(!form.date||!form.requestedTime)){formError.value='请选择补卡日期和时间';return}saving.value=true;formError.value='';try{await post(path(),tab.value==='leave'?{startDate:form.range[0],endDate:form.range[1],type:form.type,reason:form.reason.trim()}:{date:form.date,type:form.punchType,requestedTime:form.requestedTime,reason:form.reason.trim()});ElMessage.success('申请已提交');dialog.value=false;page.value=1;load()}catch(e){formError.value=errorText(e)}finally{saving.value=false}}
-async function cancel(row:any){try{await ElMessageBox.confirm('撤销后如需继续办理，需要重新提交申请。','撤销申请',{confirmButtonText:'撤销申请',cancelButtonText:'保留申请'});await post(`${path()}/${row.id}/cancel`);ElMessage.success('申请已撤销');load()}catch(e){if(e!=='cancel'&&e!=='close')ElMessage.error(errorText(e))}}
-function review(row:any,value:boolean){reviewRow.value=row;approved.value=value;comment.value='';formError.value='';reviewOpen.value=true}
-async function submitReview(){if(!approved.value&&!comment.value.trim()){formError.value='请填写驳回原因，方便申请人了解处理结果';return}saving.value=true;formError.value='';try{await post(`${path()}/${reviewRow.value.id}/review`,{approved:approved.value,comment:comment.value.trim()});reviewOpen.value=false;ElMessage.success(approved.value?'申请已批准':'申请已驳回');load()}catch(e){formError.value=errorText(e)}finally{saving.value=false}}
+async function cancel(row:any){const resource=path();try{await ElMessageBox.confirm('撤销后如需继续办理，需要重新提交申请。','撤销申请',{confirmButtonText:'撤销申请',cancelButtonText:'保留申请'});await post(`${resource}/${row.id}/cancel`);ElMessage.success('申请已撤销');load()}catch(e){if(e!=='cancel'&&e!=='close')ElMessage.error(errorText(e))}}
+function review(row:any,value:boolean){reviewPath.value=path();reviewRow.value=row;approved.value=value;comment.value='';formError.value='';reviewOpen.value=true}
+async function submitReview(){if(!approved.value&&!comment.value.trim()){formError.value='请填写驳回原因，方便申请人了解处理结果';return}saving.value=true;formError.value='';try{await post(`${reviewPath.value}/${reviewRow.value.id}/review`,{approved:approved.value,comment:comment.value.trim()});reviewOpen.value=false;ElMessage.success(approved.value?'申请已批准':'申请已驳回');load()}catch(e){formError.value=errorText(e)}finally{saving.value=false}}
 function own(row:any){return row.employeeId===auth.user?.employeeId||row.userId===auth.user?.id}
+watch(()=>route.fullPath,()=>{
+  const requestedType=route.query.requestType==='correction'?'correction':route.query.requestType==='leave'?'leave':tab.value
+  const requestedStatus=typeof route.query.status==='string'&&requestStatuses.includes(route.query.status)?route.query.status:''
+  const changed=tab.value!==requestedType||status.value!==requestedStatus
+  if(tab.value!==requestedType){reviewOpen.value=false;dialog.value=false}
+  applyingQuery=true;tab.value=requestedType;status.value=requestedStatus;applyingQuery=false
+  if(changed&&queryHandled){page.value=1;load()}
+  queryHandled=true
+  if(route.query.new!=='1'||!auth.user?.employeeId)return
+  newRequest()
+  if(requestedType==='correction'){
+    if(route.query.punchType==='IN'||route.query.punchType==='OUT')form.punchType=route.query.punchType
+    if(typeof route.query.date==='string'){
+      if(correctionDateEligible(route.query.date,today()))form.date=route.query.date
+      else formError.value='所选日期不在可补卡的日期范围内，请重新选择。'
+    }
+  }
+  const nextQuery:LocationQueryRaw={...route.query,requestType:requestedType}
+  for(const key of ['new','date','punchType','requestedTime'])delete nextQuery[key]
+  void router.replace({path:route.path,query:nextQuery}).catch(()=>{})
+},{immediate:true})
 </script>
 
 <template>
@@ -27,7 +63,7 @@ function own(row:any){return row.employeeId===auth.user?.employeeId||row.userId=
       <div><h1>{{ auth.isAdmin ? '申请与审批' : '请假与补卡' }}</h1><p>{{ auth.isAdmin ? '查看申请，处理待审批事项' : '提交申请与查看处理进度' }}</p></div>
       <el-button type="primary" :icon="Plus" :disabled="!auth.user?.employeeId" @click="newRequest">{{ tab === 'leave' ? '申请请假' : '申请补卡' }}</el-button>
     </header>
-    <el-alert v-if="!auth.user?.employeeId" title="当前账号可处理审批。提交个人申请需先关联员工档案。" type="info" :closable="false" />
+    <el-alert v-if="!auth.user?.employeeId" :title="auth.isAdmin ? '当前账号可处理审批。提交个人申请需先关联员工档案。' : '账号尚未关联员工档案，请联系管理员完成关联。'" type="info" :closable="false" />
 
     <section class="request-surface" aria-label="申请列表">
       <div class="request-category">

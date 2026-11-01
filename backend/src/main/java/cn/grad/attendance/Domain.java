@@ -60,6 +60,14 @@ public final class Domain {
         public LocalDateTime expiresAt;
         public boolean revoked;
     }
+    @Entity(name="AttendanceLocation") @Table(name="attendance_location") public static class AttendanceLocation extends Row {
+        @Column(nullable=false) public String name;
+        @Column(nullable=false) public String address="";
+        public double latitude,longitude;
+        public int radiusMeters;
+        public boolean active=true;
+        public boolean deleted;
+    }
     @Entity(name="PunchSession") @Table(name="punch_session") public static class PunchSession extends Row {
         @Column(unique=true) public String sessionId;
         public Long deviceId;
@@ -84,6 +92,11 @@ public final class Domain {
         public String livenessStatus;
         public String modelVersion;
         public long configVersion,galleryVersion;
+        public Long locationId;
+        public String locationName;
+        public Double distanceMeters,accuracyMeters;
+        /** Hash supports exact request replay without retaining the employee's coordinates. */
+        @Column(length=64) public String locationRequestHash;
     }
     @Entity(name="Daily") @Table(name="attendance_daily",uniqueConstraints=@UniqueConstraint(columnNames={"employee_id","date"})) public static class Daily extends Row {
         public Long employeeId;
@@ -117,6 +130,7 @@ public final class Domain {
         @Column(unique=true) public String pendingKey;
     }
     @Entity(name="Settings") @Table(name="system_setting") public static class Settings extends Row {
+        @Column(length=32,nullable=false) public String attendanceMode="FACE";
         public boolean livenessEnabled=true;
         public boolean testMode;
         public double recognitionThreshold=0.5,candidateMargin=0.08;

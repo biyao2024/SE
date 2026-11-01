@@ -7,6 +7,7 @@ import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.util.*;
 import org.springframework.context.annotation.*;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.*;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.*;
@@ -37,6 +38,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(a->a
                 .requestMatchers("/api/v1/kiosk/diagnostics/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/auth/csrf","/api/v1/auth/login","/api/v1/kiosk/**","/api/v1/health","/error").permitAll()
+                .requestMatchers(HttpMethod.GET,"/api/v1/attendance-policy","/api/v1/attendance-locations","/api/v1/attendance-locations/**").authenticated()
+                .requestMatchers("/api/v1/employee/**").authenticated()
                 .requestMatchers("/api/v1/auth/**","/api/v1/attendance/**","/api/v1/leave-requests/**","/api/v1/correction-requests/**").authenticated()
                 .anyRequest().hasRole("ADMIN"))
             .requestCache(c->c.disable())
@@ -57,6 +60,7 @@ public class SecurityConfig {
                             json(response,401,"ACCOUNT_DISABLED","账号已停用",mapper);return;
                         }
                         if(u.mustChangePassword&&!request.getRequestURI().startsWith("/api/v1/auth/")) { json(response,403,"PASSWORD_CHANGE_REQUIRED","请先修改初始密码",mapper);return; }
+                        if(request.getRequestURI().startsWith("/api/v1/employee/")&&u.employeeId==null) { json(response,400,"NO_EMPLOYEE","此账号尚未关联员工档案",mapper);return; }
                     }
                     chain.doFilter(request,response);
                 }

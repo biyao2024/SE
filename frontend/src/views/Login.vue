@@ -28,11 +28,12 @@ async function submit() {
   error.value = ''
   try {
     await auth.login(username.value.trim(), password.value)
-    const dest = String(route.query.redirect || '/')
+    const home = auth.isAdmin ? '/' : '/employee'
+    const dest = String(route.query.redirect || home)
     await router.replace(
       auth.user?.mustChangePassword
-        ? '/password'
-        : dest.startsWith('/') && !dest.startsWith('//') ? dest : '/',
+        ? (auth.isAdmin ? '/password' : '/employee/password')
+        : dest.startsWith('/') && !dest.startsWith('//') ? dest : home,
     )
   } catch (e) {
     error.value = errorText(e)
@@ -47,7 +48,7 @@ async function submit() {
     <section class="auth-identity" aria-labelledby="product-title">
       <div class="brand identity-brand">
         <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M8 8h16L8 24h16M8 16h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" /></svg></span>
-        <span>知行<small>人脸识别考勤系统</small></span>
+        <span>知行<small>考勤管理系统</small></span>
       </div>
       <div class="identity-content">
         <div class="product-heading">

@@ -8,8 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class KioskService {
-    final Store store;final AttendanceService attendance;final GalleryService gallery;final AlgorithmClient algorithm;
-    public KioskService(Store store,AttendanceService attendance,GalleryService gallery,AlgorithmClient algorithm){this.store=store;this.attendance=attendance;this.gallery=gallery;this.algorithm=algorithm;}
+    final Store store;final AttendanceService attendance;final GalleryService gallery;final AlgorithmClient algorithm;final AttendancePolicyService policy;
+    public KioskService(Store store,AttendanceService attendance,GalleryService gallery,AlgorithmClient algorithm,AttendancePolicyService policy){this.store=store;this.attendance=attendance;this.gallery=gallery;this.algorithm=algorithm;this.policy=policy;}
     @Transactional public void diagnosticAccess(String username) {
         var user=store.first(UserAccount.class,"where e.username=?1",username).orElseThrow(()->Api.error(403,"FORBIDDEN","管理员诊断需要有效登录"));
         if(!user.enabled||!"ADMIN".equals(user.role)||user.mustChangePassword||(user.employeeId!=null&&!store.get(Employee.class,user.employeeId).active))throw Api.error(403,"FORBIDDEN","管理员诊断需要有效管理员账号");
@@ -21,15 +21,17 @@ public class KioskService {
         var d=device(token);var s=attendance.settings();var h=algorithm.health();
         boolean modelReady=Boolean.TRUE.equals(h.get("ready"));
         boolean gallerySynced=((Number)h.getOrDefault("galleryVersion",-1)).longValue()==s.galleryVersion;
-        boolean ready=modelReady&&s.calibrationConfirmed&&gallerySynced;
-        String message=!modelReady?"算法模型未就绪，请联系管理员检查服务":
+        boolean faceAllowed=s.testMode||policy.faceAllowed();
+        boolean ready=faceAllowed&&modelReady&&s.calibrationConfirmed&&gallerySynced;
+        String message=!faceAllowed?"当前使用定位考勤，请登录员工端打卡":
+            !modelReady?"算法模型未就绪，请联系管理员检查服务":
             !s.calibrationConfirmed?"管理员需完成识别参数校准并确认":
             !gallerySynced?"人员库正在同步，请稍后刷新；持续失败请联系管理员":"请单人正对镜头";
         return Map.of("authorized",true,"deviceName",d.name,"expiresAt",d.expiresAt,
-            "ready",ready,"livenessRequired",s.livenessEnabled,"testMode",s.testMode,"message",message);
+            "ready",ready,"livenessRequired",s.livenessEnabled,"testMode",s.testMode,"attendanceMode",policy.mode(),"message",message);
     }
     @Transactional public Map<String,Object> create(String token,String type){
-        var s=attendance.guard();var d=device(token);RequestController.type(type);if(!s.testMode&&!AttendanceEngine.inWindow(attendance.rule(attendance.today()),type,attendance.now().toLocalTime()))throw Api.error(400,"OUTSIDE_WINDOW","非打卡时段");
+        var s=attendance.guard();var d=device(token);RequestController.type(type);if(!s.testMode)policy.requireFaceAllowed();if(!s.testMode&&!AttendanceEngine.inWindow(attendance.rule(attendance.today()),type,attendance.now().toLocalTime()))throw Api.error(400,"OUTSIDE_WINDOW","非打卡时段");
         if(!s.calibrationConfirmed)throw Api.error(409,"CALIBRATION_REQUIRED","请管理员先完成识别阈值校准并确认参数");gallery.ensure(s);
         for(var old:store.list(PunchSession.class,"where e.status='PENDING'")){if(!old.expiresAt.isAfter(attendance.now())){old.status="EXPIRED";old.resultMessage="验证超时";}else if(old.deviceId.equals(d.id)){old.status="CANCELLED";old.resultMessage="已重新开始";algorithm.cancel(old.sessionId);}}
         if(store.list(PunchSession.class,"where e.status='PENDING' and e.expiresAt>?1",attendance.now()).size()>=2)throw Api.error(429,"DEVICE_BUSY","设备繁忙，最多同时两个会话");
@@ -40,7 +42,7 @@ public class KioskService {
         store.save(session);return Map.of("sessionId",session.sessionId,"actions",actions,"livenessRequired",s.livenessEnabled,"expiresAt",expiresAt);
     }
     public PunchSession session(String id,Long deviceId){var session=store.first(PunchSession.class,"where e.sessionId=?1",id).orElseThrow(()->Api.error(404,"SESSION_NOT_FOUND","打卡会话不存在"));if(!session.deviceId.equals(deviceId))throw Api.error(403,"DEVICE_MISMATCH","会话不属于本设备");return session;}
-    public void valid(PunchSession session){if(!"PENDING".equals(session.status))throw Api.error(409,"SESSION_CLOSED","会话已结束，请重新开始");if(!session.expiresAt.isAfter(attendance.now()))throw Api.error(408,"SESSION_EXPIRED","验证超时");var d=store.get(Device.class,session.deviceId);if(d.revoked||!d.expiresAt.isAfter(attendance.now()))throw Api.error(403,"DEVICE_UNAUTHORIZED","设备授权失效");var s=attendance.settings();if(s.configVersion!=session.configVersion||s.galleryVersion!=session.galleryVersion)throw Api.error(409,"SESSION_STALE","配置或人员库已变更，请重新开始");}
+    public void valid(PunchSession session){if(!"PENDING".equals(session.status))throw Api.error(409,"SESSION_CLOSED","会话已结束，请重新开始");if(!session.testMode)policy.requireFaceAllowed();if(!session.expiresAt.isAfter(attendance.now()))throw Api.error(408,"SESSION_EXPIRED","验证超时");var d=store.get(Device.class,session.deviceId);if(d.revoked||!d.expiresAt.isAfter(attendance.now()))throw Api.error(403,"DEVICE_UNAUTHORIZED","设备授权失效");var s=attendance.settings();if(s.configVersion!=session.configVersion||s.galleryVersion!=session.galleryVersion)throw Api.error(409,"SESSION_STALE","配置或人员库已变更，请重新开始");}
     @Transactional public void check(String id,Long deviceId){attendance.guard();valid(session(id,deviceId));}
     public Object result(String token,String id){return publicResult(session(id,device(token).id));}
     @Transactional public void cancel(String token,String id){attendance.guard();var session=session(id,device(token).id);if("PENDING".equals(session.status)){session.status="CANCELLED";session.resultMessage="已取消";}algorithm.cancel(id);}
@@ -60,7 +62,7 @@ public class KioskService {
         if(!session.testMode&&!AttendanceEngine.inWindow(attendance.rule(accepted.toLocalDate()),session.type,accepted.toLocalTime()))throw Api.error(400,"OUTSIDE_WINDOW","非打卡时段");if(!session.testMode&&attendance.leave(employee.id,accepted.toLocalDate()))throw Api.error(409,"LEAVE_CONFLICT","今日已批准整天请假，不能打卡");
         var health=gallery.ensure(settings);if(!Objects.equals(health.get("modelVersion"),result.get("modelVersion")))throw Api.error(409,"MODEL_CHANGED","模型版本变化，请重新开始");
         session.employeeId=employee.id;
-        var last=store.first(PunchEvent.class,"where e.employeeId=?1 and e.type=?2 and e.source=?3 order by e.acceptedAt desc",employee.id,session.type,session.testMode?"FACE_TEST":"FACE");
+        var last=store.first(PunchEvent.class,"where e.employeeId=?1 and e.type=?2 and "+(session.testMode?"e.source='FACE_TEST'":"e.source<>'FACE_TEST'")+" order by e.acceptedAt desc",employee.id,session.type);
         if(last.isPresent()&&last.get().acceptedAt.toLocalDate().equals(accepted.toLocalDate())&&Duration.between(last.get().acceptedAt,accepted).toMillis()<30_000){session.status="DUPLICATE";session.resultMessage="30秒内重复打卡，已保留原记录";store.flush();return publicResult(session);}
         var event=new PunchEvent();event.employeeId=employee.id;event.type=session.type;event.acceptedAt=accepted;event.source=session.testMode?"FACE_TEST":"FACE";event.deviceId=deviceId;event.sessionId=id;event.livenessRequired=session.livenessRequired;event.livenessStatus=live;event.modelVersion=result.get("modelVersion").toString();event.configVersion=settings.configVersion;event.galleryVersion=settings.galleryVersion;store.save(event);store.flush();if(!session.testMode)attendance.recalculate(employee,accepted.toLocalDate());
         session.status="SUCCESS";session.resultMessage=(session.testMode?"【测试】":"")+(session.type.equals("IN")?"上班签到成功":"下班签退成功");store.flush();return publicResult(session);
